@@ -33,6 +33,8 @@ dependencies:
   ##ar_flutter_plugin: ^0.7.3
   permission_handler: ^12.0.1
   geolocator: ^14.0.2
+  flutter_map: ^8.2.2 # Or the latest version
+  latlong2: ^0.9.1 # For LatLng objects
 
 dependency_overrides:
   permission_handler: ^12.0.1

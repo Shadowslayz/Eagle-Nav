@@ -1,0 +1,71 @@
+{
+  "type": "FeatureCollection",
+  "appSchema": "campusnav.v1",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.06754331506277, -118.16664572292852] },
+      "properties": {
+        "id": "entr_arts_a",
+        "name": "Arts Building — Entrance A",
+        "kind": "entrance",
+        "accessible": true,
+        "speakable": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.06761686673391, -118.16687246656538] },
+      "properties": {
+        "id": "lm_table_1",
+        "name": "Table by Arts",
+        "kind": "landmark",
+        "speakable": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.06792390311425, -118.16588442964995] },
+      "properties": {
+        "id": "entr_king_a",
+        "name": "King Hall — Entrance A (Accessible)",
+        "kind": "entrance",
+        "accessible": true,
+        "speakable": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.06756388149678, -118.1660030928434]},
+      "properties": {
+        "id": "entr_king_b",
+        "name": "King Hall — Entrance B Wing (Accessible)",
+        "kind": "entrance",
+        "accessible": true,
+        "speakable": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry":{"type":"Point","coordinates":[34.06806529142112, -118.16599505337277]},
+      "properties": {
+        "id": "entr_king_c",
+        "name": "King Hall — Entrance C Wing (Accessible)",
+        "kind": "entrance",
+        "accessible": true,
+        "speakable": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry":{"type":"Point","coordinates":[34.068254606080096, -118.16662153714222]},
+      "properties": {
+        "id": "entr_king_d",
+        "name": "King Hall — Entrance D Wing (Accessible)",
+        "kind": "entrance",
+        "accessible": true,
+        "speakable": true
+      }
+    }
+  ]
+}

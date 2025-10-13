@@ -14,9 +14,7 @@ class EagleNavApp extends StatelessWidget {
         primaryColor: Colors.blue,
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.white,
-        textTheme: const TextTheme(
-          bodyMedium: TextStyle(fontSize: 16.0),
-        ),
+        textTheme: const TextTheme(bodyMedium: TextStyle(fontSize: 16.0)),
       ),
       home: MainLayout(),
     );
@@ -64,22 +62,13 @@ class _MainLayoutState extends State<MainLayout> {
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.star),
-            label: 'Favorites',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Favorites'),
           BottomNavigationBarItem(
             icon: Icon(Icons.notifications),
             label: 'Alerts',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
           BottomNavigationBarItem(
             icon: Icon(Icons.warning, color: Colors.red),
             label: 'Emergency',
@@ -114,9 +103,9 @@ class SearchBarWidget extends StatelessWidget {
             icon: Icon(Icons.mic, color: Colors.blue),
             onPressed: () {
               // TODO: Voice input logic
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("Voice search tapped")),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text("Voice search tapped")));
             },
           ),
         ],
@@ -139,7 +128,10 @@ class FavoritesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Text('Favorites Screen (Bookmarks)', style: TextStyle(fontSize: 18)),
+      child: Text(
+        'Favorites Screen (Bookmarks)',
+        style: TextStyle(fontSize: 18),
+      ),
     );
   }
 }
@@ -148,7 +140,10 @@ class NotificationsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Text('Notifications Screen (Events/Alerts)', style: TextStyle(fontSize: 18)),
+      child: Text(
+        'Notifications Screen (Events/Alerts)',
+        style: TextStyle(fontSize: 18),
+      ),
     );
   }
 }
@@ -157,7 +152,10 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Text('Profile Screen (Accessibility settings)', style: TextStyle(fontSize: 18)),
+      child: Text(
+        'Profile Screen (Accessibility settings)',
+        style: TextStyle(fontSize: 18),
+      ),
     );
   }
 }
@@ -172,9 +170,9 @@ class EmergencyScreen extends StatelessWidget {
         label: Text("Contact Security", style: TextStyle(color: Colors.white)),
         onPressed: () {
           // TODO: Emergency call/alert
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Emergency tapped")),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text("Emergency tapped")));
         },
       ),
     );

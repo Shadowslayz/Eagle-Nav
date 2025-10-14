@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
-void main() {
+final FlutterLocalNotificationsPlugin fln = FlutterLocalNotificationsPlugin();
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initNotifications();
   runApp(EagleNavApp());
 }
 
@@ -145,10 +152,81 @@ class SearchBarWidget extends StatelessWidget {
 
 // 📱 Placeholder Screens
 class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Text('Home Screen (Map/AR here)', style: TextStyle(fontSize: 18)),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('EagleNav Home'),
+        backgroundColor: const Color.fromARGB(255, 161, 133, 40),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              'Home Screen\n(Map / AR will appear here)',
+              style: TextStyle(fontSize: 18),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 30),
+            ElevatedButton.icon(
+              onPressed: () {
+                // Navigate to the temporary map test page
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const MapTestScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.map_rounded),
+              label: const Text('Start Route (Map Test)'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color.fromARGB(255, 161, 133, 40),
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                textStyle: const TextStyle(fontSize: 16),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class MapTestScreen extends StatelessWidget {
+  const MapTestScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Map Test Mode'),
+        backgroundColor: const Color.fromARGB(255, 161, 133, 40),
+      ),
+      body: const Center(
+        child: Text(
+          '🗺️ Temporary Map Testing Screen\n\nIntegrate Map/AR view here.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 18),
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: const Color.fromARGB(255, 161, 133, 40),
+        onPressed: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Map test started! (Simulating route setup...)'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        },
+        child: const Icon(Icons.play_arrow_rounded),
+      ),
     );
   }
 }
@@ -380,4 +458,47 @@ class EmergencyScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<void> initNotifications() async {
+  tz.initializeTimeZones();
+  // Use your timezone if needed:
+  tz.setLocalLocation(tz.getLocation('America/Los_Angeles'));
+
+  const AndroidInitializationSettings androidInit =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+  const InitializationSettings initSettings =
+      InitializationSettings(android: androidInit);
+  await fln.initialize(initSettings);
+}
+
+Future<void> scheduleDayBefore(String id, String title, String startDateIso) async {
+  // startDateIso is "YYYY-MM-DD"
+  final parts = startDateIso.split('-').map(int.parse).toList(); // [yyyy,mm,dd]
+  final eventDate = DateTime(parts[0], parts[1], parts[2], 9); // 9am event day (arbitrary)
+  final notifyTime = eventDate.subtract(const Duration(days: 1)); // day before
+
+  if (notifyTime.isBefore(DateTime.now())) return; // skip past events
+
+  final tz.TZDateTime when = tz.TZDateTime.from(notifyTime, tz.local);
+  final android = AndroidNotificationDetails(
+    'eaglenav_events', 'Event Reminders',
+    channelDescription: 'Notifies you the day before bookmarked events',
+    importance: Importance.high, priority: Priority.high,
+  );
+
+  await fln.zonedSchedule(
+    id.hashCode, // unique int
+    'Event tomorrow: $title',
+    'Happening on ${startDateIso}',
+    when,
+    NotificationDetails(android: android),
+    uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+    androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+    matchDateTimeComponents: DateTimeComponents.dateAndTime,
+  );
+}
+
+Future<void> cancelReminder(String id) async {
+  await fln.cancel(id.hashCode);
 }

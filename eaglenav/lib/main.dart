@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 final FlutterLocalNotificationsPlugin fln = FlutterLocalNotificationsPlugin();
 
@@ -40,7 +42,7 @@ class _MainLayoutState extends State<MainLayout> {
 
   // Screens for bottom nav
   final List<Widget> _screens = [
-    HomeScreen(),
+    SimpleMap(),
     FavoritesScreen(),
     NotificationsScreen(),
     ProfileScreen(),
@@ -208,12 +210,7 @@ class MapTestScreen extends StatelessWidget {
         title: const Text('Map Test Mode'),
         backgroundColor: const Color.fromARGB(255, 161, 133, 40),
       ),
-      body: const Center(
-        child: Text(
-          '🗺️ Temporary Map Testing Screen\n\nIntegrate Map/AR view here.',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 18),
-        ),
+      body: const SimpleMap(),
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color.fromARGB(255, 161, 133, 40),
@@ -227,10 +224,26 @@ class MapTestScreen extends StatelessWidget {
         },
         child: const Icon(Icons.play_arrow_rounded),
       ),
+// Simple Map example 
+class SimpleMap extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return FlutterMap(
+      options: const MapOptions(
+        // centered the map on our school California State University, Los Angeles
+        initialCenter: LatLng(34.067, -118.170), 
+        initialZoom: 16.0, // Increased zoom to show campus detail
+      ),
+      children: [
+        //  TileLayer is the base map layer it loads the tiles from OpenStreetMap
+        TileLayer(
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName: 'com.example.eagle_nav_app', 
+        ),
+      ],
     );
   }
 }
-
 class FavoritesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {

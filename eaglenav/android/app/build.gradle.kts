@@ -7,13 +7,14 @@ plugins {
 
 android {
     namespace = "com.example.eaglenav"
-    compileSdk = 36   // Force latest SDK
+    compileSdk = 36  // Keep latest API
 
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17   // Bump to 17
+        sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true  // <-- Required for flutter_local_notifications
     }
 
     kotlinOptions {
@@ -22,20 +23,23 @@ android {
 
     defaultConfig {
         applicationId = "com.example.eaglenav"
-        minSdk = flutter.minSdkVersion    // Or higher if plugin docs require
-        targetSdk = 36 // Force latest
+        minSdk = flutter.minSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
     buildTypes {
-        release {
+        getByName("release") {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
 }
 
-
 flutter {
     source = "../.."
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }

@@ -547,37 +547,37 @@ Future<void> initNotifications() async {
   await fln.initialize(initSettings);
 }
 
-Future<void> scheduleDayBefore(
-  String id,
-  String title,
-  String startDateIso,
-) async {
-  final parts = startDateIso.split('-').map(int.parse).toList();
-  final eventDate = DateTime(parts[0], parts[1], parts[2], 9);
-  final notifyTime = eventDate.subtract(const Duration(days: 1));
-  if (notifyTime.isBefore(DateTime.now())) return;
+// Future<void> scheduleDayBefore(
+//   String id,
+//   String title,
+//   String startDateIso,
+// ) async {
+//   final parts = startDateIso.split('-').map(int.parse).toList();
+//   final eventDate = DateTime(parts[0], parts[1], parts[2], 9);
+//   final notifyTime = eventDate.subtract(const Duration(days: 1));
+//   if (notifyTime.isBefore(DateTime.now())) return;
 
-  final when = tz.TZDateTime.from(notifyTime, tz.local);
-  const android = AndroidNotificationDetails(
-    'eaglenav_events',
-    'Event Reminders',
-    channelDescription: 'Notifies you the day before bookmarked events',
-    importance: Importance.high,
-    priority: Priority.high,
-  );
+//   final when = tz.TZDateTime.from(notifyTime, tz.local);
+//   const android = AndroidNotificationDetails(
+//     'eaglenav_events',
+//     'Event Reminders',
+//     channelDescription: 'Notifies you the day before bookmarked events',
+//     importance: Importance.high,
+//     priority: Priority.high,
+//   );
 
-  await fln.zonedSchedule(
-    id.hashCode,
-    'Event tomorrow: $title',
-    'Happening on $startDateIso',
-    when,
-    const NotificationDetails(android: android),
-    uiLocalNotificationDateInterpretation:
-        UILocalNotificationDateInterpretation.absoluteTime,
-    androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-    matchDateTimeComponents: DateTimeComponents.dateAndTime,
-  );
-}
+//   await fln.zonedSchedule(
+//     id.hashCode,
+//     'Event tomorrow: $title',
+//     'Happening on $startDateIso',
+//     when,
+//     const NotificationDetails(android: android),
+//     uiLocalNotificationDateInterpretation:
+//         UILocalNotificationDateInterpretation.absoluteTime,
+//     androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+//     matchDateTimeComponents: DateTimeComponents.dateAndTime,
+//   );
+// }
 
 Future<void> cancelReminder(String id) async {
   await fln.cancel(id.hashCode);

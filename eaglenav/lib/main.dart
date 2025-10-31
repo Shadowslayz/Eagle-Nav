@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'features/map/presentation/map_screen.dart';
 
 final FlutterLocalNotificationsPlugin fln = FlutterLocalNotificationsPlugin();
 final FlutterTts flutterTts = FlutterTts();
@@ -18,9 +17,9 @@ Future<void> initTts() async {
     await flutterTts.setLanguage("en-US");
     await flutterTts.setPitch(1.0);
     _ttsInitialized = true;
-    print('TTS initialized');
+    debugPrint('TTS initialized');
   } catch (e) {
-    print('TTS init error: $e');
+    debugPrint('TTS init error: $e');
   }
 }
 
@@ -29,9 +28,9 @@ Future<void> initGeolocator() async {
   try {
     // Initialize geolocator - request permissions if needed
     _geolocatorInitialized = true;
-    print('Geolocator initialized');
+    debugPrint('Geolocator initialized');
   } catch (e) {
-    print('Geolocator init error: $e');
+    debugPrint('Geolocator init error: $e');
   }
 }
 
@@ -215,80 +214,6 @@ class HomeScreen extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class MapTestScreen extends StatelessWidget {
-  const MapTestScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Map Test Mode'),
-        backgroundColor: const Color.fromARGB(255, 161, 133, 40),
-      ),
-      body: const RepaintBoundary(child: SimpleMap()),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color.fromARGB(255, 161, 133, 40),
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Map test started! (Simulating route setup...)'),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        },
-        child: const Icon(Icons.play_arrow_rounded),
-      ),
-    );
-  }
-}
-
-class SimpleMap extends StatefulWidget {
-  const SimpleMap({super.key});
-
-  @override
-  State<SimpleMap> createState() => _SimpleMapState();
-}
-
-class _SimpleMapState extends State<SimpleMap> {
-  late MapController mapController;
-
-  @override
-  void initState() {
-    super.initState();
-    mapController = MapController();
-  }
-
-  @override
-  void dispose() {
-    mapController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: FlutterMap(
-        mapController: mapController,
-        options: const MapOptions(
-          initialCenter: LatLng(34.067, -118.170),
-          initialZoom: 16.0,
-          interactionOptions: InteractionOptions(
-            flags: InteractiveFlag.drag | InteractiveFlag.pinchZoom,
-          ),
-        ),
-        children: [
-          TileLayer(
-            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            userAgentPackageName: 'com.example.eagle_nav_app',
-            maxZoom: 18.0,
-            minZoom: 12.0,
-          ),
-        ],
       ),
     );
   }

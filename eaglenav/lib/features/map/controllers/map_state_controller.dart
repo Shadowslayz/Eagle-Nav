@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart' as ll;
 //import 'package:timezone/timezone.dart';
 import '../services/location_service.dart';
-import '../../routing/valhalla_service.dart';
+import '../../routing/services/valhalla_service.dart';
 import 'dart:async';
 
 class MapStateController extends ChangeNotifier {

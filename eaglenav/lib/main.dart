@@ -108,7 +108,7 @@ class _MainLayoutState extends State<MainLayout> {
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Favorites'),
           BottomNavigationBarItem(
-              icon: Icon(Icons.notifications), label: 'Alerts'),
+              icon: Icon(Icons.notifications), label: 'Alerts/Events'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
           BottomNavigationBarItem(
               icon: Icon(Icons.warning, color: Colors.red), label: 'Emergency'),

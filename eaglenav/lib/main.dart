@@ -5,6 +5,7 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'screens/events_screen.dart';
 
 final FlutterLocalNotificationsPlugin fln = FlutterLocalNotificationsPlugin();
 final FlutterTts flutterTts = FlutterTts();
@@ -27,7 +28,6 @@ Future<void> initTts() async {
 Future<void> initGeolocator() async {
   if (_geolocatorInitialized) return;
   try {
-    // Initialize geolocator - request permissions if needed
     _geolocatorInitialized = true;
     print('Geolocator initialized');
   } catch (e) {
@@ -36,14 +36,9 @@ Future<void> initGeolocator() async {
 }
 
 void main() {
-  // Note: No async here so app starts immediately
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(
-    const EagleNavApp(),
-  ); // use const for more efficient memory performance
+  runApp(const EagleNavApp());
 
-  // Defer ALL heavy initialization to 2 seconds after app starts
-  // This avoids crash on startup due to too much work on main thread
   Future.delayed(const Duration(seconds: 2), () {
     initNotifications();
   });
@@ -82,7 +77,7 @@ class _MainLayoutState extends State<MainLayout> {
   final List<Widget> _screens = const [
     HomeScreen(),
     FavoritesScreen(),
-    NotificationsScreen(),
+    EventsScreen(), // ✅ replaced NotificationsScreen with real Events
     ProfileScreen(),
     EmergencyScreen(),
   ];
@@ -93,7 +88,7 @@ class _MainLayoutState extends State<MainLayout> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: PreferredSize(
-        preferredSize: Size.fromHeight(60.0),
+        preferredSize: const Size.fromHeight(60.0),
         child: AppBar(
           backgroundColor: const Color.fromARGB(255, 222, 182, 52),
           elevation: 4,
@@ -525,40 +520,53 @@ class EmergencyScreen extends StatelessWidget {
     return Center(
       child: ElevatedButton.icon(
         style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-        icon: Icon(Icons.warning, color: Colors.white),
-        label: Text("Contact Security", style: TextStyle(color: Colors.white)),
+        icon: const Icon(Icons.warning, color: Colors.white),
+        label: const Text("Contact Security", style: TextStyle(color: Colors.white)),
         onPressed: () {
-          // TODO: Emergency call/alert
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text("Emergency tapped")));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text("Emergency tapped")));
         },
       ),
     );
   }
 }
 
+// -------------------- NOTIFICATION LOGIC --------------------
+
 Future<void> initNotifications() async {
   tz.initializeTimeZones();
   tz.setLocalLocation(tz.getLocation('America/Los_Angeles'));
 
   const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-  const initSettings = InitializationSettings(android: androidInit);
+  const darwinInit = DarwinInitializationSettings();
+
+  const initSettings = InitializationSettings(
+    android: androidInit,
+    iOS: darwinInit,
+  );
+
   await fln.initialize(initSettings);
+
+  final androidImpl =
+      fln.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+  await androidImpl?.requestNotificationsPermission();
+
+  final iosImpl =
+      fln.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
+  await iosImpl?.requestPermissions(alert: true, badge: true, sound: true);
 }
 
-Future<void> scheduleDayBefore(
-  String id,
-  String title,
-  String startDateIso,
-) async {
+Future<void> scheduleDayBefore(String id, String title, String startDateIso) async {
   final parts = startDateIso.split('-').map(int.parse).toList();
+  if (parts.length < 3) return;
+
   final eventDate = DateTime(parts[0], parts[1], parts[2], 9);
   final notifyTime = eventDate.subtract(const Duration(days: 1));
   if (notifyTime.isBefore(DateTime.now())) return;
 
   final when = tz.TZDateTime.from(notifyTime, tz.local);
-  const android = AndroidNotificationDetails(
+
+  const androidDetails = AndroidNotificationDetails(
     'eaglenav_events',
     'Event Reminders',
     channelDescription: 'Notifies you the day before bookmarked events',
@@ -566,12 +574,14 @@ Future<void> scheduleDayBefore(
     priority: Priority.high,
   );
 
+  const notificationDetails = NotificationDetails(android: androidDetails);
+
   await fln.zonedSchedule(
     id.hashCode,
     'Event tomorrow: $title',
     'Happening on $startDateIso',
     when,
-    const NotificationDetails(android: android),
+    notificationDetails,
     uiLocalNotificationDateInterpretation:
         UILocalNotificationDateInterpretation.absoluteTime,
     androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,

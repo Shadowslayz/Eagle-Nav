@@ -7,6 +7,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'screens/events_screen.dart';
+import 'screens/ar_test_screen.dart';
 
 final FlutterLocalNotificationsPlugin fln = FlutterLocalNotificationsPlugin();
 final FlutterTts flutterTts = FlutterTts();
@@ -78,6 +79,7 @@ class _MainLayoutState extends State<MainLayout> {
     EventsScreen(),
     ProfileScreen(),
     EmergencyScreen(),
+    ARTestScreen(),
   ];
 
   void _onItemTapped(int index) => setState(() => _selectedIndex = index);
@@ -112,6 +114,8 @@ class _MainLayoutState extends State<MainLayout> {
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
           BottomNavigationBarItem(
               icon: Icon(Icons.warning, color: Colors.red), label: 'Emergency'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.camera_alt), label: 'AR Test',),
         ],
       ),
     );

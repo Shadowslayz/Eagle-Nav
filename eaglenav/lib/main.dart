@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
@@ -35,13 +36,10 @@ Future<void> initGeolocator() async {
   }
 }
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initNotifications(); // ✅ initialize before runApp
   runApp(const EagleNavApp());
-
-  Future.delayed(const Duration(seconds: 2), () {
-    initNotifications();
-  });
 }
 
 class EagleNavApp extends StatelessWidget {
@@ -77,7 +75,7 @@ class _MainLayoutState extends State<MainLayout> {
   final List<Widget> _screens = const [
     HomeScreen(),
     FavoritesScreen(),
-    EventsScreen(), // ✅ replaced NotificationsScreen with real Events
+    EventsScreen(),
     ProfileScreen(),
     EmergencyScreen(),
   ];
@@ -101,7 +99,7 @@ class _MainLayoutState extends State<MainLayout> {
         type: BottomNavigationBarType.fixed,
         backgroundColor: const Color.fromARGB(255, 222, 182, 52),
         selectedItemColor: Colors.black,
-        unselectedItemColor: const Color.fromARGB(255, 255, 255, 255),
+        unselectedItemColor: Colors.white,
         selectedIconTheme: const IconThemeData(size: 30),
         unselectedIconTheme: const IconThemeData(size: 24),
         currentIndex: _selectedIndex,
@@ -110,14 +108,10 @@ class _MainLayoutState extends State<MainLayout> {
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Favorites'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.notifications),
-            label: 'Alerts',
-          ),
+              icon: Icon(Icons.notifications), label: 'Alerts'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.warning, color: Colors.red),
-            label: 'Emergency',
-          ),
+              icon: Icon(Icons.warning, color: Colors.red), label: 'Emergency'),
         ],
       ),
     );
@@ -191,9 +185,7 @@ class HomeScreen extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const MapTestScreen(),
-                  ),
+                  MaterialPageRoute(builder: (context) => const MapTestScreen()),
                 );
               },
               icon: const Icon(Icons.map_rounded),
@@ -201,10 +193,8 @@ class HomeScreen extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color.fromARGB(255, 161, 133, 40),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 14,
-                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                 textStyle: const TextStyle(fontSize: 16),
               ),
             ),
@@ -272,9 +262,8 @@ class _SimpleMapState extends State<SimpleMap> {
         options: const MapOptions(
           initialCenter: LatLng(34.067, -118.170),
           initialZoom: 16.0,
-          interactionOptions: InteractionOptions(
-            flags: InteractiveFlag.drag | InteractiveFlag.pinchZoom,
-          ),
+          interactionOptions:
+              InteractionOptions(flags: InteractiveFlag.drag | InteractiveFlag.pinchZoom),
         ),
         children: [
           TileLayer(
@@ -295,220 +284,17 @@ class FavoritesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Center(
-      child: Text(
-        'Favorites Screen (Bookmarks)',
-        style: TextStyle(fontSize: 18),
-      ),
+      child: Text('Favorites Screen (Bookmarks)', style: TextStyle(fontSize: 18)),
     );
   }
 }
 
-class NotificationsScreen extends StatelessWidget {
-  const NotificationsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Text(
-        'Notifications Screen (Events/Alerts)',
-        style: TextStyle(fontSize: 18),
-      ),
-    );
-  }
-}
-
-class ProfileScreen extends StatefulWidget {
+class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
-
-  @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
-}
-
-class _ProfileScreenState extends State<ProfileScreen> {
-  bool voiceGuidance = true;
-  bool highContrast = false;
-  bool audioHaptics = true;
-  bool rumbleHaptics = false;
-
-  bool aroundPeople = true;
-  String colorBlindMode = 'None';
-  double colorBlindIntensity = 0.5;
-  bool announceObstacles = true;
-  bool announceLandmarks = true;
-  bool announcePeople = false;
-
-  bool avoidStairs = true;
-  bool wheelchairAccessibleRoutes = true;
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Accessibility Settings'),
-        backgroundColor: const Color.fromARGB(255, 161, 133, 40),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          const Text(
-            'Display Settings',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 10),
-          SwitchListTile(
-            title: const Text('High Contrast Mode'),
-            value: highContrast,
-            onChanged: (value) => setState(() => highContrast = value),
-          ),
-          const SizedBox(height: 10),
-          DropdownButtonFormField<String>(
-            value: colorBlindMode,
-            decoration: const InputDecoration(
-              labelText: 'Color Blind Mode',
-              border: OutlineInputBorder(),
-            ),
-            items: const [
-              DropdownMenuItem(value: 'None', child: Text('None')),
-              DropdownMenuItem(
-                value: 'Protanopia',
-                child: Text('Protanopia (Red-Blind)'),
-              ),
-              DropdownMenuItem(
-                value: 'Protanomaly',
-                child: Text('Protanomaly (Weak Red)'),
-              ),
-              DropdownMenuItem(
-                value: 'Deuteranopia',
-                child: Text('Deuteranopia (Green-Blind)'),
-              ),
-              DropdownMenuItem(
-                value: 'Deuteranomaly',
-                child: Text('Deuteranomaly (Weak Green)'),
-              ),
-              DropdownMenuItem(
-                value: 'Tritanopia',
-                child: Text('Tritanopia (Blue-Blind)'),
-              ),
-              DropdownMenuItem(
-                value: 'Tritanomaly',
-                child: Text('Tritanomaly (Weak Blue)'),
-              ),
-              DropdownMenuItem(
-                value: 'Achromatopsia',
-                child: Text('Achromatopsia (No Color)'),
-              ),
-            ],
-            onChanged: (value) => setState(() => colorBlindMode = value!),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'Color Blindness Intensity: ${(colorBlindIntensity * 100).round()}%',
-            style: const TextStyle(fontSize: 16),
-          ),
-          Slider(
-            value: colorBlindIntensity,
-            onChanged: colorBlindMode == 'None'
-                ? null
-                : (value) => setState(() => colorBlindIntensity = value),
-            min: 0.0,
-            max: 1.0,
-            divisions: 10,
-            activeColor: const Color.fromARGB(255, 161, 133, 40),
-          ),
-          const Divider(height: 40),
-          const Text(
-            'Navigation Preferences',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 10),
-          SwitchListTile(
-            title: const Text('Navigate Around People'),
-            subtitle: const Text('Avoid crowds when generating routes'),
-            value: aroundPeople,
-            onChanged: (value) => setState(() => aroundPeople = value),
-          ),
-          const Divider(height: 40),
-          const Text(
-            'Accessibility Needs',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 10),
-          SwitchListTile(
-            title: const Text('Avoid Stairs'),
-            subtitle: const Text('Use ramps or elevators instead of stairs'),
-            value: avoidStairs,
-            onChanged: (value) => setState(() => avoidStairs = value),
-          ),
-          SwitchListTile(
-            title: const Text('Wheelchair Accessible Routes'),
-            subtitle: const Text('Use verified accessible paths only'),
-            value: wheelchairAccessibleRoutes,
-            onChanged: (value) =>
-                setState(() => wheelchairAccessibleRoutes = value),
-          ),
-          const Divider(height: 40),
-          const Text(
-            'TTS Announcements',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 10),
-          SwitchListTile(
-            title: const Text('Enable Voice Guidance'),
-            value: voiceGuidance,
-            onChanged: (value) => setState(() => voiceGuidance = value),
-          ),
-          SwitchListTile(
-            title: const Text('Announce Obstacles'),
-            value: announceObstacles,
-            onChanged: (value) => setState(() => announceObstacles = value),
-          ),
-          SwitchListTile(
-            title: const Text('Announce Landmarks'),
-            value: announceLandmarks,
-            onChanged: (value) => setState(() => announceLandmarks = value),
-          ),
-          SwitchListTile(
-            title: const Text('Announce Nearby People'),
-            value: announcePeople,
-            onChanged: (value) => setState(() => announcePeople = value),
-          ),
-          const Divider(height: 40),
-          const Text(
-            'Haptic Feedback',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 10),
-          SwitchListTile(
-            title: const Text('Enable Audio Haptics'),
-            subtitle: const Text('Subtle vibration synced with sound cues'),
-            value: audioHaptics,
-            onChanged: (value) => setState(() => audioHaptics = value),
-          ),
-          SwitchListTile(
-            title: const Text('Enable Rumble Haptics'),
-            subtitle: const Text('Stronger feedback for warnings or turns'),
-            value: rumbleHaptics,
-            onChanged: (value) => setState(() => rumbleHaptics = value),
-          ),
-          const SizedBox(height: 40),
-          ElevatedButton.icon(
-            onPressed: () async {
-              // Initialize TTS if needed before speaking
-              await initTts();
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('Settings saved')));
-            },
-            icon: const Icon(Icons.save),
-            label: const Text('Save Settings'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color.fromARGB(255, 161, 133, 40),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
-          ),
-        ],
-      ),
+    return const Scaffold(
+      body: Center(child: Text('Profile Screen Placeholder')),
     );
   }
 }
@@ -521,10 +307,11 @@ class EmergencyScreen extends StatelessWidget {
       child: ElevatedButton.icon(
         style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
         icon: const Icon(Icons.warning, color: Colors.white),
-        label: const Text("Contact Security", style: TextStyle(color: Colors.white)),
+        label: const Text("Contact Security",
+            style: TextStyle(color: Colors.white)),
         onPressed: () {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(const SnackBar(content: Text("Emergency tapped")));
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Emergency tapped")));
         },
       ),
     );
@@ -534,22 +321,25 @@ class EmergencyScreen extends StatelessWidget {
 // -------------------- NOTIFICATION LOGIC --------------------
 
 Future<void> initNotifications() async {
-  tz.initializeTimeZones();
-  tz.setLocalLocation(tz.getLocation('America/Los_Angeles'));
+  try {
+    tz.initializeTimeZones();
+    tz.setLocalLocation(tz.getLocation('America/Los_Angeles'));
+  } catch (e) {
+    debugPrint('TZ init error: $e');
+  }
 
   const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-  const darwinInit = DarwinInitializationSettings();
-
-  const initSettings = InitializationSettings(
-    android: androidInit,
-    iOS: darwinInit,
-  );
-
+  const iosInit = DarwinInitializationSettings();
+  const initSettings = InitializationSettings(android: androidInit, iOS: iosInit);
   await fln.initialize(initSettings);
 
   final androidImpl =
       fln.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
   await androidImpl?.requestNotificationsPermission();
+
+  if (Platform.isAndroid) {
+    await androidImpl?.requestExactAlarmsPermission(); // safe no-op on older
+  }
 
   final iosImpl =
       fln.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
@@ -557,38 +347,119 @@ Future<void> initNotifications() async {
 }
 
 Future<void> scheduleDayBefore(String id, String title, String startDateIso) async {
-  final parts = startDateIso.split('-').map(int.parse).toList();
-  if (parts.length < 3) return;
+  try {
+    final parts = startDateIso.split('-').map(int.parse).toList();
+    if (parts.length < 3) return;
 
-  final eventDate = DateTime(parts[0], parts[1], parts[2], 9);
-  final notifyTime = eventDate.subtract(const Duration(days: 1));
-  if (notifyTime.isBefore(DateTime.now())) return;
+    final eventDate = DateTime(parts[0], parts[1], parts[2], 9);
+    final notifyTime = eventDate.subtract(const Duration(days: 1));
+    if (notifyTime.isBefore(DateTime.now())) return;
 
-  final when = tz.TZDateTime.from(notifyTime, tz.local);
+    final when = tz.TZDateTime.from(notifyTime, tz.local);
 
-  const androidDetails = AndroidNotificationDetails(
-    'eaglenav_events',
-    'Event Reminders',
-    channelDescription: 'Notifies you the day before bookmarked events',
-    importance: Importance.high,
-    priority: Priority.high,
-  );
+    const androidDetails = AndroidNotificationDetails(
+      'eaglenav_events',
+      'Event Reminders',
+      channelDescription: 'Notifies you the day before bookmarked events',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
 
-  const notificationDetails = NotificationDetails(android: androidDetails);
+    const details = NotificationDetails(android: androidDetails);
 
-  await fln.zonedSchedule(
-    id.hashCode,
-    'Event tomorrow: $title',
-    'Happening on $startDateIso',
-    when,
-    notificationDetails,
-    uiLocalNotificationDateInterpretation:
-        UILocalNotificationDateInterpretation.absoluteTime,
-    androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-    matchDateTimeComponents: DateTimeComponents.dateAndTime,
-  );
+    // 🟢 Try exact/inexact schedule first
+    await fln.zonedSchedule(
+      id.hashCode,
+      'Event tomorrow: $title',
+      'Happening on $startDateIso',
+      when,
+      details,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.dateAndTime,
+    );
+  } catch (e) {
+    debugPrint('⚠️ scheduleDayBefore failed: $e');
+
+    // 🔁 Fallback: show notification immediately (not scheduled)
+    const fallbackDetails = AndroidNotificationDetails(
+      'eaglenav_fallback',
+      'Fallback Notifications',
+      channelDescription: 'Used when scheduling fails',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+    await fln.show(
+      id.hashCode,
+      'Reminder saved: $title',
+      'Event reminder could not be scheduled (exact alarms not allowed)',
+      const NotificationDetails(android: fallbackDetails),
+    );
+  }
 }
 
+Future<void> scheduleOnDay(
+  String id,
+  String title,
+  String startDateIso, {
+  int hour = 9,
+}) async {
+  try {
+    final parts = startDateIso.split('-').map(int.parse).toList();
+    if (parts.length < 3) return;
+
+    final notifyTime = DateTime(parts[0], parts[1], parts[2], hour);
+    if (notifyTime.isBefore(DateTime.now())) return;
+
+    final when = tz.TZDateTime.from(notifyTime, tz.local);
+
+    const androidDetails = AndroidNotificationDetails(
+      'eaglenav_events',
+      'Event Reminders',
+      channelDescription: 'Notifies you for bookmarked events',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+
+    const details = NotificationDetails(android: androidDetails);
+
+    await fln.zonedSchedule(
+      id.hashCode,
+      'Today: $title',
+      'Happening on $startDateIso',
+      when,
+      details,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.dateAndTime,
+    );
+  } catch (e) {
+    debugPrint('⚠️ scheduleOnDay failed: $e');
+
+    // 🔁 Fallback: show instant notification if scheduling fails
+    const fallbackDetails = AndroidNotificationDetails(
+      'eaglenav_fallback',
+      'Fallback Notifications',
+      channelDescription: 'Used when scheduling fails',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+    await fln.show(
+      id.hashCode,
+      'Reminder saved: $title',
+      'Exact alarms not permitted — fallback triggered',
+      const NotificationDetails(android: fallbackDetails),
+    );
+  }
+}
+
+
 Future<void> cancelReminder(String id) async {
-  await fln.cancel(id.hashCode);
+  try {
+    await fln.cancel(id.hashCode);
+  } catch (e) {
+    debugPrint('cancelReminder error: $e');
+  }
 }

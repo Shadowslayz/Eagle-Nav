@@ -42,7 +42,9 @@ dependencies:
   flutter_tts: ^4.2.3
   flutter_compass: ^0.8.0
   html: ^0.15.6
-  url_launcher: ^6.3.0
+  url_launcher: ^6.3.2
+  shared_preferences: ^2.3.3
+
 
 
 dependency_overrides:

@@ -32,6 +32,7 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+/macos/Flutter/GeneratedPluginRegistrant.swift
 
 # Symbolication related
 app.*.symbols
@@ -43,3 +44,20 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# valhalla related
+# Valhalla generated files (built from OSM source data)
+/assets/data/valhalla/valhalla_CSULA/valhalla_tiles/
+/assets/data/valhalla/valhalla_CSULA/duplicateways.txt
+/assets/data/valhalla/valhalla_CSULA/file_hashes.txt
+/assets/data/valhalla/valhalla_CSULA/valhalla_tiles.tar
+/assets/data/valhalla/valhalla_CSULA/valhalla.json
+
+#ignore models that are not in use
+/lib/models/poi.dart
+/lib/models/route_dto.dart
+lib/models/step_dto.dart
+
+**/windows/flutter/generated_plugin_registrant.cc
+/windows/flutter/generated_plugin_registrant.h
+/windows/flutter/generated_plugins.cmake

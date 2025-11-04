@@ -54,7 +54,6 @@ app.*.map.json
 /assets/data/valhalla/valhalla_CSULA/valhalla.json
 
 #ignore models that are not in use
-/lib/models/poi.dart
 /lib/models/route_dto.dart
 lib/models/step_dto.dart
 

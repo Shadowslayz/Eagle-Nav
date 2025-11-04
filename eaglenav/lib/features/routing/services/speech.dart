@@ -16,4 +16,15 @@ class Speech {
       print("Error announcing direction: $e");
     }
   }
+
+  Future<void> sayInfo(String text) async {
+    try {
+      await _flutterTts.stop();
+      await _flutterTts.setLanguage("en-US");
+      await _flutterTts.speak(text);
+      SemanticsService.announce(text, TextDirection.ltr);
+    } catch (e) {
+      print("Error speaking info: $e");
+    }
+  }
 }

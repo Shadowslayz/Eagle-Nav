@@ -84,7 +84,7 @@ Better solution: Fix your PATH (see troubleshooting)
    - Docker may ask for system permissions - click "OK"
    - Wait for Docker to start (whale icon appears in menu bar)
 
-   ![Docker macOS Running](docker-running.png)
+   ![Docker macOS Running](routing_setup_images/docker-running.png)
    *Docker running in macOS menu bar*
 
 4. **Verify Installation:**

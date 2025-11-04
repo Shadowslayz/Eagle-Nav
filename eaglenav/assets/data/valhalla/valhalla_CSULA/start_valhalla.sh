@@ -6,5 +6,5 @@ docker run -dt \
   -e force_rebuild=True \
   ghcr.io/gis-ops/docker-valhalla/valhalla:latest
 
-echo "🚀 Valhalla server starting..."
+echo "Valhalla server starting..."
 docker logs -f valhalla_csula

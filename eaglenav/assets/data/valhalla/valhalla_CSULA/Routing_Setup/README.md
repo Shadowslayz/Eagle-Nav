@@ -410,6 +410,12 @@ You should receive a JSON response with route geometry and instructions.
 ## Testing Routing on Flutter App and Androuid Emulator
 # Make sure the emulator is running
 
+# update dependencies
+```bash
+flutter pub get
+```
+
+# run the flutter app
 ```bash
 flutter run
 ```

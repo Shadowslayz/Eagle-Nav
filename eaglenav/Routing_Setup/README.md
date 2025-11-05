@@ -546,6 +546,8 @@ Then start again.
 1. Check logs: `docker logs valhalla_csula`
 2. Verify the `CSULA.osm.pbf` file is present
 3. Force rebuild: Add `-e force_rebuild=True` to the docker command
+4. Rebuild a new server. Delete all files within the Valhalla_CSULA folder
+except the required three files: CSULA.osm.pbf, start_valhalla.bat, start_valhalla.sh.
 
 ---
 

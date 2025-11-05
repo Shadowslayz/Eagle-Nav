@@ -48,7 +48,7 @@ Or simply **double-click** `start_valhalla.bat`
 - **2-4GB free disk space** (for tiles generation)
 - **Internet connection** (first-time Docker image download ~500MB)
 
-![Docker Desktop Running](docker-running.png)
+![Docker Desktop Running](routing_setup_images/docker-running.png)
 *Make sure Docker Desktop is running before starting*
 
 ⚠️ Getting "docker: command not found"?
@@ -108,15 +108,13 @@ Better solution: Fix your PATH (see troubleshooting)
    - Visit [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop)
    - Click "Download for Windows"
 
-   ![Docker Download Windows](placeholder-docker-download-windows.png)
    *Download Docker Desktop for Windows*
 
 2. **Run the Installer:**
    - Double-click `Docker Desktop Installer.exe`
    - Follow the installation wizard
    - **Important:** Keep "Use WSL 2 instead of Hyper-V" checked (recommended)
-   
-   ![Docker Windows Install](placeholder-docker-install-windows.png)
+
    *Docker Desktop installation wizard*
 
 3. **Restart Your Computer:**
@@ -143,7 +141,7 @@ Better solution: Fix your PATH (see troubleshooting)
    
    Should show empty list (no error)
 
-   ![Docker Windows Running](docker-running.png)
+   ![Docker Windows Running](routing_setup_images/docker-running.png)
    *Docker Desktop running on Windows*
 
 ---
@@ -238,8 +236,8 @@ Better solution: Fix your PATH (see troubleshooting)
    
    **Tip to quickly navigate to directory:** Right-click the folder in VS Code → "Reveal in Finder" (macOS) or "Reveal in File Explorer" (Linux), then open Terminal from there.
 
-   ![Opening folder in terminal](directory-finding_1.png)
-   ![Opening folder in terminal](directory-finding_2.png)
+   ![Opening folder in terminal](routing_setup_images/directory-finding_1.png)
+   ![Opening folder in terminal](routing_setup_images/directory-finding_2.png)
 
 3. **Make the startup script executable** (first time only):
    ```bash
@@ -258,7 +256,7 @@ Better solution: Fix your PATH (see troubleshooting)
    - Free up port 8002 if needed
    - Start the server
    
-   ![Terminal Starting Valhalla](terminal-start.png)
+   ![Terminal Starting Valhalla](routing_setup_images/terminal-start.png)
    *Starting the Valhalla server from Terminal*
 
 5. **Wait for build to complete** (~2-5 minutes on first run):
@@ -369,7 +367,7 @@ Open Docker Desktop and verify:
 - Container `valhalla_csula` is running (green indicator)
 - Port 8002 is mapped
 
-![Docker Desktop Container](docker-container-running.png)
+![Docker Desktop Container](routing_setup_images/docker-container-running.png)
 *Valhalla container running in Docker Desktop*
 
 ---
@@ -514,7 +512,6 @@ Getting "docker: command not found"?
 2. Try restarting VS Code after Docker Desktop installation
 3. If still not working, use system PowerShell
 
-![VS Code vs System Terminal](placeholder-vscode-terminal.png)
 *Use docker terminal if Docker doesn't work in VS Code or system terminal*
 
 ---

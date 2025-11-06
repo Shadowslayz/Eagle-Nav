@@ -4,12 +4,56 @@
   "features": [
     {
       "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [34.06754331506277, -118.16664572292852] },
+      "geometry": { "type": "Point", "coordinates": [34.06723053597601, -118.1667380511591] },
       "properties": {
-        "id": "entr_arts_a",
+        "id": "fa_main",
+        "name": "Arts Building — Main Entrance ",
+        "kind": "entrance",
+        "accessible": true,
+        "speakable": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.06753590119153, -118.16666173725085] },
+      "properties": {
+        "id": "fa_a",
         "name": "Arts Building — Entrance A",
         "kind": "entrance",
         "accessible": true,
+        "speakable": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.06695296782009, -118.16666126608106] },
+      "properties": {
+        "id": "fa_b",
+        "name": "Arts Building — Entrance B",
+        "kind": "entrance",
+        "accessible": null,
+        "speakable": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.06753115140194, -118.16618469960662] },
+      "properties": {
+        "id": "fa_c",
+        "name": "Arts Building — Entrance C",
+        "kind": "entrance",
+        "accessible": true,
+        "speakable": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.06709168728636, -118.16595982417358] },
+      "properties": {
+        "id": "fa_d",
+        "name": "Arts Building — Entrance D",
+        "kind": "entrance",
+        "accessible": null,
         "speakable": true
       }
     },
@@ -66,6 +110,150 @@
         "accessible": true,
         "speakable": true
       }
+    },
+    {
+      "type": "Feature",
+      "geometry":{"type":"Point","coordinates":[34.06745785629236, -118.16744742134989]},
+      "properties": {
+        "id": "jfk_lib_n",
+        "name": "JFK Libary - North Entrance",
+        "kind": "entrance",
+        "accessible": true,
+        "speakable": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry":{"type":"Point","coordinates":[34.067298623106076, -118.16745521107217]},
+      "properties": {
+        "id": "jfk_lib_s",
+        "name": "JFK Libary — South/Palmer Wing",
+        "kind": "entrance",
+        "accessible": true,
+        "speakable": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry":{"type":"Point","coordinates":[34.06436460348844, -118.16957637775187]},
+      "properties": {
+        "id": "st_entr",
+        "name": "Simpson Tower Entrance A",
+        "kind": "entrance",
+        "accessible": true,
+        "speakable": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry":{"type":"Point","coordinates":[34.06398747492756, -118.1696568176577]},
+      "properties": {
+        "id": "sh_a",
+        "name": "Salazar Hall Entrance A",
+        "kind": "entrance",
+        "accessible": true,
+        "speakable": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry":{"type":"Point","coordinates":[34.06378822023149, -118.16967378117384]},
+      "properties": {
+        "id": "sh_b",
+        "name": "Salazar Hall Entrance B",
+        "kind": "entrance",
+        "accessible": true,
+        "speakable": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry":{"type":"Point","coordinates":[34.06441665391286, -118.1699073270585]},
+      "properties": {
+        "id": "sh_c",
+        "name": "Salazar Hall Entrance C",
+        "kind": "entrance",
+        "accessible": true,
+        "speakable": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry":{"type":"Point","coordinates":[34.063849427993674, -118.17014481889208]},
+      "properties": {
+        "id": "sh_d",
+        "name": "Salazar Hall Entrance D",
+        "kind": "entrance",
+        "accessible": true,
+        "speakable": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry":{"type":"Point","coordinates":[34.06548870696183, -118.16882313868582]},
+      "properties": {
+        "id": "bs_a",
+        "name": "Biological Sciences Entrance ",
+        "kind": "entrance",
+        "accessible": true,
+        "speakable": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry":{"type":"Point","coordinates":[34.06619055526484, -118.1683308312372]},
+      "properties": {
+        "id": "cc_a",
+        "name": "Career Center Entrance",
+        "kind": "entrance",
+        "accessible": true,
+        "speakable": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry":{"type":"Point","coordinates":[34.06666378366883, -118.16796293193724]},
+      "properties": {
+        "id": "pe_a",
+        "name": "Physical Education Entrance A",
+        "kind": "entrance",
+        "accessible": true,
+        "speakable": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry":{"type":"Point","coordinates":[34.06672604631717, -118.16763616937135]},
+      "properties": {
+        "id": "pe_b",
+        "name": "Physical Education Entrance B",
+        "kind": "entrance",
+        "accessible": true,
+        "speakable": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry":{"type":"Point","coordinates":[34.065741686634475, -118.1685354874341]},
+      "properties": {
+        "id": "hc_a",
+        "name": "Student Health Center",
+        "kind": "entrance",
+        "accessible": true,
+        "speakable": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry":{"type":"Point","coordinates":[34.06735627878429, -118.16810795813547]},
+      "properties": {
+        "id": "",
+        "name": "University Book Store Entrance A",
+        "kind": "entrance",
+        "accessible": false,
+        "speakable": true
+      }
     }
+
   ]
 }

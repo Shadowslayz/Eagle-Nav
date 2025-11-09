@@ -1,0 +1,38 @@
+{
+  "type": "FeatureCollection",
+  "appSchema": "campusnav.v1",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.06754331506277, -118.16664572292852] },
+      "properties": {
+        "id": "entr_arts_a",
+        "name": "Arts Building — Entrance A",
+        "kind": "entrance",
+        "accessible": true,
+        "speakable": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.06761686673391, -118.16687246656538] },
+      "properties": {
+        "id": "lm_table_1",
+        "name": "Table by Arts",
+        "kind": "landmark",
+        "speakable": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.06792390311425, -118.16588442964995] },
+      "properties": {
+        "id": "entr_king_a",
+        "name": "King Hall — Entrance A (Accessible)",
+        "kind": "entrance",
+        "accessible": true,
+        "speakable": true
+      }
+    }
+  ]
+}

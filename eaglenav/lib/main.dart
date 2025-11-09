@@ -5,6 +5,8 @@ void main() {
 }
 
 class EagleNavApp extends StatelessWidget {
+  const EagleNavApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -24,6 +26,8 @@ class EagleNavApp extends StatelessWidget {
 }
 
 class MainLayout extends StatefulWidget {
+  const MainLayout({super.key});
+
   @override
   _MainLayoutState createState() => _MainLayoutState();
 }
@@ -92,6 +96,8 @@ class _MainLayoutState extends State<MainLayout> {
 
 // 🔍 Search Bar Widget
 class SearchBarWidget extends StatelessWidget {
+  const SearchBarWidget({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -127,15 +133,19 @@ class SearchBarWidget extends StatelessWidget {
 
 // 📱 Placeholder Screens
 class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Text('Home Screen (Map/AR here)', style: TextStyle(fontSize: 18)),
+      child: Text('Home Screen (Map/AR here) — Reda Test', style: TextStyle(fontSize: 18)),
     );
   }
 }
 
 class FavoritesScreen extends StatelessWidget {
+  const FavoritesScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -145,6 +155,8 @@ class FavoritesScreen extends StatelessWidget {
 }
 
 class NotificationsScreen extends StatelessWidget {
+  const NotificationsScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -154,6 +166,8 @@ class NotificationsScreen extends StatelessWidget {
 }
 
 class ProfileScreen extends StatelessWidget {
+  const ProfileScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -163,6 +177,8 @@ class ProfileScreen extends StatelessWidget {
 }
 
 class EmergencyScreen extends StatelessWidget {
+  const EmergencyScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Center(

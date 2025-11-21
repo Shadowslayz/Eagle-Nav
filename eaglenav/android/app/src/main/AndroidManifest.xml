@@ -6,6 +6,9 @@
 
     <!-- ✅ Allow scheduling exact alarms -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
 
     <!-- Allow Flutter & url_launcher to query browser apps -->
     <queries>

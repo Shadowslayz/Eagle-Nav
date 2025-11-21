@@ -43,6 +43,7 @@ dependencies:
   html: ^0.15.6
   url_launcher: ^6.3.2
   shared_preferences: ^2.3.3
+  speech_to_text: ^7.0.0
 
 
 

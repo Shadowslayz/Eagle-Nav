@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_map/flutter_map.dart';
@@ -118,8 +119,59 @@ class _MainLayoutState extends State<MainLayout> {
   }
 }
 
-class SearchBarWidget extends StatelessWidget {
+class SearchBarWidget extends StatefulWidget {
   const SearchBarWidget({super.key});
+
+  @override
+  State<SearchBarWidget> createState() => _SearchBarWidgetState();
+}
+
+class _SearchBarWidgetState extends State<SearchBarWidget> {
+  late stt.SpeechToText _speech;
+  final TextEditingController _controller = TextEditingController();
+  bool _isListening = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _speech = stt.SpeechToText();
+  }
+
+  Future<void> _startListening() async {
+    bool available = await _speech.initialize(
+      onStatus: (status) {
+        if (status == 'done') {
+          setState(() => _isListening = false);
+        }
+      },
+      onError: (error) {
+        print("STT Error: $error");
+        setState(() => _isListening = false);
+      },
+    );
+
+    if (available) {
+      setState(() => _isListening = true);
+
+      _speech.listen(
+        onResult: (result) {
+          setState(() {
+            _controller.text = result.recognizedWords;
+            _controller.selection = TextSelection.fromPosition(
+              TextPosition(offset: _controller.text.length),
+            );
+          });
+        },
+        listenMode: stt.ListenMode.dictation,
+        pauseFor: const Duration(seconds: 2),
+      );
+    }
+  }
+
+  Future<void> _stopListening() async {
+    await _speech.stop();
+    setState(() => _isListening = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -139,20 +191,24 @@ class SearchBarWidget extends StatelessWidget {
               width: 28,
             ),
           ),
-          const Expanded(
+
+          Expanded(
             child: TextField(
-              decoration: InputDecoration(
+              controller: _controller,
+              decoration: const InputDecoration(
                 hintText: 'Search destination...',
                 border: InputBorder.none,
               ),
             ),
           ),
+
           IconButton(
-            icon: const Icon(Icons.mic, color: Colors.amber),
+            icon: Icon(
+              _isListening ? Icons.mic_off : Icons.mic,
+              color: Colors.amber,
+            ),
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Voice search tapped")),
-              );
+              _isListening ? _stopListening() : _startListening();
             },
           ),
         ],
@@ -160,6 +216,7 @@ class SearchBarWidget extends StatelessWidget {
     );
   }
 }
+
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});

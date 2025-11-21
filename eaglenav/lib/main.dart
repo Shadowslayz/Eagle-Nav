@@ -2,12 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import 'screens/CVision.dart';
+
 
 final FlutterLocalNotificationsPlugin fln = FlutterLocalNotificationsPlugin();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initNotifications();
+
+  // ✅ Safe Option 2: Catch notification init errors on unsupported platforms
+  try {
+    await initNotifications();
+  } catch (e) {
+    debugPrint('⚠️ Notifications skipped or failed to init: $e');
+  }
+
   runApp(EagleNavApp());
 }
 
@@ -38,13 +47,13 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> {
   int _selectedIndex = 0;
 
-  // Screens for bottom nav
   final List<Widget> _screens = [
     HomeScreen(),
     FavoritesScreen(),
     NotificationsScreen(),
     ProfileScreen(),
     EmergencyScreen(),
+    CVisionScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -57,9 +66,9 @@ class _MainLayoutState extends State<MainLayout> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: PreferredSize(
-        preferredSize: Size.fromHeight(60.0),
+        preferredSize: const Size.fromHeight(60.0),
         child: AppBar(
-          backgroundColor: Color.fromARGB(255, 222, 182, 52),
+          backgroundColor: const Color.fromARGB(255, 222, 182, 52),
           elevation: 4,
           title: SearchBarWidget(),
           centerTitle: true,
@@ -68,34 +77,20 @@ class _MainLayoutState extends State<MainLayout> {
       body: _screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
-        backgroundColor: const Color.fromARGB(255, 222, 182, 52),        // 🟡 Set background color
-        selectedItemColor: Colors.black,      // ⚫ Selected icon/text color
-        unselectedItemColor: const Color.fromARGB(255, 255, 255, 255),    // ⚪ Unselected icon/text color
-        selectedIconTheme: IconThemeData(size: 30),
-        unselectedIconTheme: IconThemeData(size: 24),
+        backgroundColor: const Color.fromARGB(255, 222, 182, 52),
+        selectedItemColor: Colors.black,
+        unselectedItemColor: const Color.fromARGB(255, 255, 255, 255),
+        selectedIconTheme: const IconThemeData(size: 30),
+        unselectedIconTheme: const IconThemeData(size: 24),
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.star),
-            label: 'Favorites',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.notifications),
-            label: 'Alerts',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.warning, color: Colors.red),
-            label: 'Emergency',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Favorites'),
+          BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'Alerts'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          BottomNavigationBarItem(icon: Icon(Icons.warning, color: Colors.red), label: 'Emergency'),
+          BottomNavigationBarItem(icon: Icon(Icons.add_a_photo_outlined), label: 'CVision'),
         ],
       ),
     );
@@ -107,25 +102,22 @@ class SearchBarWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
-          // 🖼️ Logo on the left
           Padding(
             padding: const EdgeInsets.only(right: 8.0),
             child: Image.asset(
-              'assets/images/DarkSimplifiedEagleIcon.png', // make sure this path is correct
+              'assets/images/DarkSimplifiedEagleIcon.png',
               height: 28,
               width: 28,
             ),
           ),
-
-          // 🔍 Text field area
-          Expanded(
+          const Expanded(
             child: TextField(
               decoration: InputDecoration(
                 hintText: 'Search destination...',
@@ -133,14 +125,11 @@ class SearchBarWidget extends StatelessWidget {
               ),
             ),
           ),
-
-          // 🎤 Mic icon button
           IconButton(
-            icon: Icon(Icons.mic, color: Colors.amber),
+            icon: const Icon(Icons.mic, color: Colors.amber),
             onPressed: () {
-              // TODO: Voice input logic
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("Voice search tapped")),
+                const SnackBar(content: Text("Voice search tapped")),
               );
             },
           ),
@@ -173,12 +162,9 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: 30),
             ElevatedButton.icon(
               onPressed: () {
-                // Navigate to the temporary map test page
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const MapTestScreen(),
-                  ),
+                  MaterialPageRoute(builder: (context) => const MapTestScreen()),
                 );
               },
               icon: const Icon(Icons.map_rounded),
@@ -186,8 +172,7 @@ class HomeScreen extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color.fromARGB(255, 161, 133, 40),
                 foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                 textStyle: const TextStyle(fontSize: 16),
               ),
             ),
@@ -234,7 +219,7 @@ class MapTestScreen extends StatelessWidget {
 class FavoritesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return const Center(
       child: Text('Favorites Screen (Bookmarks)', style: TextStyle(fontSize: 18)),
     );
   }
@@ -243,7 +228,7 @@ class FavoritesScreen extends StatelessWidget {
 class NotificationsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return const Center(
       child: Text('Notifications Screen (Events/Alerts)', style: TextStyle(fontSize: 18)),
     );
   }
@@ -257,21 +242,16 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // Accessibility Settings
   bool voiceGuidance = true;
   bool highContrast = false;
   bool audioHaptics = true;
   bool rumbleHaptics = false;
-
-  // Navigation & Announcements
-  bool aroundPeople = true; // true = avoid crowds, false = go through
+  bool aroundPeople = true;
   String colorBlindMode = 'None';
-  double colorBlindIntensity = 0.5; // slider for severity
+  double colorBlindIntensity = 0.5;
   bool announceObstacles = true;
   bool announceLandmarks = true;
   bool announcePeople = false;
-
-  // Accessibility Needs
   bool avoidStairs = true;
   bool wheelchairAccessibleRoutes = true;
 
@@ -285,11 +265,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          /// --- DISPLAY SETTINGS ---
-          const Text(
-            'Display Settings',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-          ),
+          const Text('Display Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
           const SizedBox(height: 10),
           SwitchListTile(
             title: const Text('High Contrast Mode'),
@@ -299,84 +275,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 10),
           DropdownButtonFormField<String>(
             value: colorBlindMode,
-            decoration: const InputDecoration(
-              labelText: 'Color Blind Mode',
-              border: OutlineInputBorder(),
-            ),
+            decoration: const InputDecoration(labelText: 'Color Blind Mode', border: OutlineInputBorder()),
             items: const [
               DropdownMenuItem(value: 'None', child: Text('None')),
               DropdownMenuItem(value: 'Protanopia', child: Text('Protanopia (Red-Blind)')),
-              DropdownMenuItem(value: 'Protanomaly', child: Text('Protanomaly (Weak Red)')),
               DropdownMenuItem(value: 'Deuteranopia', child: Text('Deuteranopia (Green-Blind)')),
-              DropdownMenuItem(value: 'Deuteranomaly', child: Text('Deuteranomaly (Weak Green)')),
               DropdownMenuItem(value: 'Tritanopia', child: Text('Tritanopia (Blue-Blind)')),
-              DropdownMenuItem(value: 'Tritanomaly', child: Text('Tritanomaly (Weak Blue)')),
-              DropdownMenuItem(value: 'Achromatopsia', child: Text('Achromatopsia (No Color)')),
             ],
             onChanged: (value) => setState(() => colorBlindMode = value!),
           ),
-
           const SizedBox(height: 20),
-
-          Text(
-            'Color Blindness Intensity: ${(colorBlindIntensity * 100).round()}%',
-            style: const TextStyle(fontSize: 16),
-          ),
+          Text('Color Blindness Intensity: ${(colorBlindIntensity * 100).round()}%'),
           Slider(
             value: colorBlindIntensity,
-            onChanged: colorBlindMode == 'None'
-                ? null
-                : (value) => setState(() => colorBlindIntensity = value),
+            onChanged: colorBlindMode == 'None' ? null : (v) => setState(() => colorBlindIntensity = v),
             min: 0.0,
             max: 1.0,
             divisions: 10,
             activeColor: const Color.fromARGB(255, 161, 133, 40),
           ),
-
           const Divider(height: 40),
-
-          /// --- NAVIGATION SETTINGS ---
-          const Text(
-            'Navigation Preferences',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 10),
+          const Text('Navigation Preferences', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
           SwitchListTile(
             title: const Text('Navigate Around People'),
             subtitle: const Text('Avoid crowds when generating routes'),
             value: aroundPeople,
             onChanged: (value) => setState(() => aroundPeople = value),
           ),
-
           const Divider(height: 40),
-
-          /// --- ACCESSIBILITY NEEDS ---
-          const Text(
-            'Accessibility Needs',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 10),
+          const Text('Accessibility Needs', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
           SwitchListTile(
             title: const Text('Avoid Stairs'),
-            subtitle: const Text('Use ramps or elevators instead of stairs'),
             value: avoidStairs,
             onChanged: (value) => setState(() => avoidStairs = value),
           ),
           SwitchListTile(
             title: const Text('Wheelchair Accessible Routes'),
-            subtitle: const Text('Use verified accessible paths only'),
             value: wheelchairAccessibleRoutes,
             onChanged: (value) => setState(() => wheelchairAccessibleRoutes = value),
           ),
-
           const Divider(height: 40),
-
-          /// --- TTS ANNOUNCEMENTS ---
-          const Text(
-            'TTS Announcements',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 10),
+          const Text('TTS Announcements', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
           SwitchListTile(
             title: const Text('Enable Voice Guidance'),
             value: voiceGuidance,
@@ -397,35 +336,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
             value: announcePeople,
             onChanged: (value) => setState(() => announcePeople = value),
           ),
-
           const Divider(height: 40),
-
-          /// --- HAPTIC FEEDBACK ---
-          const Text(
-            'Haptic Feedback',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 10),
+          const Text('Haptic Feedback', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
           SwitchListTile(
             title: const Text('Enable Audio Haptics'),
-            subtitle: const Text('Subtle vibration synced with sound cues'),
             value: audioHaptics,
             onChanged: (value) => setState(() => audioHaptics = value),
           ),
           SwitchListTile(
             title: const Text('Enable Rumble Haptics'),
-            subtitle: const Text('Stronger feedback for warnings or turns'),
             value: rumbleHaptics,
             onChanged: (value) => setState(() => rumbleHaptics = value),
           ),
-
           const SizedBox(height: 40),
           ElevatedButton.icon(
             onPressed: () {
-              // TODO: Save preferences via SharedPreferences or database
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Settings saved')),
-              );
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('Settings saved')));
             },
             icon: const Icon(Icons.save),
             label: const Text('Save Settings'),
@@ -447,13 +374,11 @@ class EmergencyScreen extends StatelessWidget {
     return Center(
       child: ElevatedButton.icon(
         style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-        icon: Icon(Icons.warning, color: Colors.white),
-        label: Text("Contact Security", style: TextStyle(color: Colors.white)),
+        icon: const Icon(Icons.warning, color: Colors.white),
+        label: const Text("Contact Security", style: TextStyle(color: Colors.white)),
         onPressed: () {
-          // TODO: Emergency call/alert
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Emergency tapped")),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text("Emergency tapped")));
         },
       ),
     );
@@ -462,37 +387,34 @@ class EmergencyScreen extends StatelessWidget {
 
 Future<void> initNotifications() async {
   tz.initializeTimeZones();
-  // Use your timezone if needed:
   tz.setLocalLocation(tz.getLocation('America/Los_Angeles'));
 
   const AndroidInitializationSettings androidInit =
       AndroidInitializationSettings('@mipmap/ic_launcher');
-  const InitializationSettings initSettings =
-      InitializationSettings(android: androidInit);
+  const InitializationSettings initSettings = InitializationSettings(android: androidInit);
   await fln.initialize(initSettings);
 }
 
 Future<void> scheduleDayBefore(String id, String title, String startDateIso) async {
-  // startDateIso is "YYYY-MM-DD"
-  final parts = startDateIso.split('-').map(int.parse).toList(); // [yyyy,mm,dd]
-  final eventDate = DateTime(parts[0], parts[1], parts[2], 9); // 9am event day (arbitrary)
-  final notifyTime = eventDate.subtract(const Duration(days: 1)); // day before
-
-  if (notifyTime.isBefore(DateTime.now())) return; // skip past events
+  final parts = startDateIso.split('-').map(int.parse).toList();
+  final eventDate = DateTime(parts[0], parts[1], parts[2], 9);
+  final notifyTime = eventDate.subtract(const Duration(days: 1));
+  if (notifyTime.isBefore(DateTime.now())) return;
 
   final tz.TZDateTime when = tz.TZDateTime.from(notifyTime, tz.local);
-  final android = AndroidNotificationDetails(
+  const android = AndroidNotificationDetails(
     'eaglenav_events', 'Event Reminders',
     channelDescription: 'Notifies you the day before bookmarked events',
-    importance: Importance.high, priority: Priority.high,
+    importance: Importance.high,
+    priority: Priority.high,
   );
 
   await fln.zonedSchedule(
-    id.hashCode, // unique int
+    id.hashCode,
     'Event tomorrow: $title',
-    'Happening on ${startDateIso}',
+    'Happening on $startDateIso',
     when,
-    NotificationDetails(android: android),
+    const NotificationDetails(android: android),
     uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
     androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     matchDateTimeComponents: DateTimeComponents.dateAndTime,

@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;          // 👈 add this line
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:ultralytics_yolo/ultralytics_yolo.dart';
@@ -45,7 +46,7 @@ class _CVisionScreenState extends State<CVisionScreen> {
         names.add(r.className!);
       }
     }
-    
+
     if (names.isEmpty) return;
 
     final sentence = 'I see ${names.join(', ')}';
@@ -62,6 +63,11 @@ class _CVisionScreenState extends State<CVisionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 👇 choose model path per platform
+    final String modelPath = Platform.isAndroid
+        ? 'yolo11n.tflite'  // Android: file in android/app/src/main/assets
+        : 'yolo11n';        // iOS: whatever is currently working for you
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Computer Vision'),
@@ -70,12 +76,11 @@ class _CVisionScreenState extends State<CVisionScreen> {
       body: Stack(
         children: [
           YOLOView(
-            modelPath: 'yolo11n',
+            modelPath: modelPath,
             task: YOLOTask.detect,
             confidenceThreshold: 0.3,
             onResult: _handleResults,
           ),
-          
           Positioned(
             left: 16,
             right: 16,

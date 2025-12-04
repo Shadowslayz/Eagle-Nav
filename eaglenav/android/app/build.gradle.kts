@@ -9,7 +9,7 @@ android {
     namespace = "com.example.eaglenav"
     compileSdk = 36  // Keep latest API
 
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "28.0.13004108"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

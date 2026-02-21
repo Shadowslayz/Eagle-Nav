@@ -1,3 +1,4 @@
+import 'package:eaglenav/features/landmarks/map/landmark_marker_adapter.dart';
 import 'package:eaglenav/features/map/controllers/map_state_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -6,8 +7,11 @@ import 'package:latlong2/latlong.dart' as ll;
 //import 'package:timezone/timezone.dart';
 import '/config/app_config.dart';
 import '../services/location_service.dart';
+import '../widgets/building_search_bar.dart';
+import '../widgets/pulsing_location_marker.dart';
 //import '../../routing/valhalla_service.dart';
 import '../../routing/controller/navigation_controller.dart';
+import '../../landmarks/services/landmark_service.dart';
 
 class MapTestScreen extends StatelessWidget {
   const MapTestScreen({super.key});
@@ -21,7 +25,46 @@ class MapTestScreen extends StatelessWidget {
         title: const Text('Map Test Mode'),
         backgroundColor: const Color.fromARGB(255, 161, 133, 40),
       ),
-      body: RepaintBoundary(child: SimpleMap(key: MapTestScreen._mapKey)),
+      body: Stack(
+        children: [
+          // The map (existing RepaintBoundary)
+          RepaintBoundary(child: SimpleMap(key: MapTestScreen._mapKey)),
+
+          // Search bar overlay at the top
+          Positioned(
+            top: 26,
+            left: 16,
+            right: 16,
+            child: BuildingSearchBar(
+              onBuildingSelected: (building) {
+                debugPrint('Building selected on map: ${building.name}');
+
+                // Get the main entrance coordinates
+                final entrance = building.mainEntrance;
+                if (entrance != null) {
+                  // Navigate to this building entrance
+                  final dest = ll.LatLng(entrance.latitude, entrance.longitude);
+                  // SEND DESTINATION TO THE MAP WIDGET
+                  MapTestScreen._mapKey.currentState?.setDestination(dest);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Selected: ${building.name}\nLat: ${entrance.latitude}, Lng: ${entrance.longitude}',
+                      ),
+                      action: SnackBarAction(
+                        label: 'Navigate',
+                        onPressed: () {
+                          debugPrint('Start navigation to ${building.name}');
+                        },
+                      ),
+                    ),
+                  );
+                }
+              },
+            ),
+          ),
+        ],
+      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 80),
@@ -84,6 +127,8 @@ class _SimpleMapState extends State<SimpleMap> {
   // flutter_map's controller
   late MapController mapController;
 
+  //late LandmarkService _landmarkService;
+
   // Map state controller
   late MapStateController _stateController;
   final NavigationController _navController = NavigationController();
@@ -92,8 +137,9 @@ class _SimpleMapState extends State<SimpleMap> {
   double? _distanceToNextTurn;
   bool _isNavigating = false;
 
-  // Default destination (you can make this dynamic later)
-  final _destination = const ll.LatLng(34.06754331506277, -118.16664572292852);
+  // Default destination
+  //final _destination = const ll.LatLng(34.06754331506277, -118.16664572292852);
+  ll.LatLng? _destination;
 
   @override
   void initState() {
@@ -104,11 +150,35 @@ class _SimpleMapState extends State<SimpleMap> {
       AppConfig.valhallaBaseUrl,
     );
 
-    debugPrint('🔧 MapTestScreen initialized');
+    // Will ignore until we know how to integrate the landmarks
+    //_landmarkService = LandmarkService();
+    //_loadLandmarks();
+
+    debugPrint(' MapTestScreen initialized');
     _getLocation();
 
     // Listen to location updates for navigation
     _listenToLocationUpdates();
+  }
+
+  // Future<void> _loadLandmarks() async {
+  //   await _landmarkService.loadLandmarks();
+  //   debugPrint('Loaded landmarks: ${_landmarkService.landmarks.length}');
+  //   setState(() {}); // Refresh UI after loading
+  // }
+
+  void setDestination(ll.LatLng dest) {
+    setState(() {
+      _destination = dest;
+    });
+
+    debugPrint("New destination set: $dest");
+
+    // pan + zoom to the destination
+    mapController.move(dest, 17.0);
+
+    // auto-load route
+    //_loadRoute();
   }
 
   /// Initialize location and handle UI responses
@@ -191,11 +261,18 @@ class _SimpleMapState extends State<SimpleMap> {
     });
   }
 
+  // Load landmark static dots on the map
+
   /// Load route and display on map (without starting navigation)
   Future<void> _loadRoute() async {
     debugPrint('🗺️ Load route button pressed');
 
-    final result = await _stateController.loadRoute(_destination);
+    if (_destination == null) {
+      debugPrint("No destination set!");
+      return;
+    }
+
+    final result = await _stateController.loadRoute(_destination!);
 
     if (!mounted) return;
 
@@ -257,9 +334,13 @@ class _SimpleMapState extends State<SimpleMap> {
 
   /// Start turn-by-turn navigation with TTS and haptics
   Future<void> _startNavigation() async {
+    if (_destination == null) {
+      debugPrint("No destination set!");
+      return;
+    }
     debugPrint('Start navigation button pressed');
 
-    final navResult = await _stateController.getNavigationRoute(_destination);
+    final navResult = await _stateController.getNavigationRoute(_destination!);
 
     if (!mounted) return;
 
@@ -386,38 +467,23 @@ class _SimpleMapState extends State<SimpleMap> {
                 // Markers
                 MarkerLayer(
                   markers: [
+                    // display the markers
+                    //...buildLandmarkMarkers(_landmarkService.landmarks),
                     // Current location marker - from controller
                     if (_stateController.currentLocation != null)
                       Marker(
                         point: _stateController.currentLocation!,
-                        width: 50,
-                        height: 50,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.8),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 3),
-                          ),
-                          child: const Icon(
-                            Icons.navigation,
-                            color: Colors.white,
-                            size: 24,
-                          ),
+                        width: 60,
+                        height: 60,
+                        child: const PulsingLocationMarker(
+                          size: 20.0,
+                          dotColor: Colors.blue,
+                          pulseColor: Colors.blue,
                         ),
                       ),
+
                     // Start marker - from controller
-                    if (_stateController.routePolyline.isNotEmpty)
-                      Marker(
-                        point: _stateController.routePolyline.first,
-                        width: 40,
-                        height: 40,
-                        child: const Icon(
-                          Icons.location_on,
-                          color: Colors.green,
-                          size: 40,
-                        ),
-                      ),
-                    // End marker - from controller
+                    //if (_stateController.routePolyline.isNotEmpty)
                     if (_stateController.routePolyline.isNotEmpty)
                       Marker(
                         point: _stateController.routePolyline.last,
@@ -437,7 +503,7 @@ class _SimpleMapState extends State<SimpleMap> {
             // Navigation instruction banner
             if (_currentInstruction != null && _isNavigating)
               Positioned(
-                top: 16,
+                top: 76,
                 left: 16,
                 right: 16,
                 child: Card(

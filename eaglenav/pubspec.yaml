@@ -64,9 +64,10 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/data/points.geojson
     - assets/images/DarkSimplifiedEagleIcon.png
     - assets/images/PrimaryLogoOnYellowBackground.png
+    - assets/data/buildings.json
+    #- assets/data/landmarks.geojson
   # https://flutter.dev/to/asset-from-package
 
   # To add custom fonts to your application, add a fonts section here,

@@ -1,4 +1,4 @@
-import 'package:eaglenav/features/landmarks/map/landmark_marker_adapter.dart';
+//import 'package:eaglenav/features/landmarks/map/landmark_marker_adapter.dart';
 import 'package:eaglenav/features/map/controllers/map_state_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -11,7 +11,7 @@ import '../widgets/building_search_bar.dart';
 import '../widgets/pulsing_location_marker.dart';
 //import '../../routing/valhalla_service.dart';
 import '../../routing/controller/navigation_controller.dart';
-import '../../landmarks/services/landmark_service.dart';
+//import '../../landmarks/services/landmark_service.dart';
 
 class MapTestScreen extends StatelessWidget {
   const MapTestScreen({super.key});

@@ -253,7 +253,7 @@ Better solution: Fix your PATH (see troubleshooting)
    
    The script will automatically:
    - Check if Docker is installed and running
-   - Verify the CSULA.osm.pbf file exists
+   - Verify the pbf file exists
    - Remove any old containers
    - Free up port 8002 if needed
    - Start the server

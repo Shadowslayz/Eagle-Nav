@@ -7,7 +7,7 @@ Follow these steps to set up the development environment and run **Eagle-Nav** l
 ### 1. Clone the Repository
 Open your terminal and run the following commands to clone the project and enter the directory:
 ```bash
-git clone [https://github.com/Shadowslayz/Eagle-Nav.git](https://github.com/Shadowslayz/Eagle-Nav.git)
+git clone -b Path-Tracing-MVP https://github.com/Shadowslayz/Eagle-Nav.git
 cd Eagle-Nav/eaglenav
 ```
 

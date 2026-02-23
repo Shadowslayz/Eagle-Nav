@@ -1,3 +1,4 @@
+
 //import 'package:eaglenav/features/landmarks/map/landmark_marker_adapter.dart';
 import 'package:eaglenav/features/map/controllers/map_state_controller.dart';
 import 'package:flutter/material.dart';
@@ -166,6 +167,18 @@ class _SimpleMapState extends State<SimpleMap> {
   //   debugPrint('Loaded landmarks: ${_landmarkService.landmarks.length}');
   //   setState(() {}); // Refresh UI after loading
   // }
+
+  /// Zoom in logic
+  void _zoomIn() {
+    final currentZoom = mapController.camera.zoom;
+    mapController.move(mapController.camera.center, currentZoom + 1);
+  }
+
+  /// Zoom out logic
+  void _zoomOut() {
+    final currentZoom = mapController.camera.zoom;
+    mapController.move(mapController.camera.center, currentZoom - 1);
+  }
 
   void setDestination(ll.LatLng dest) {
     setState(() {
@@ -498,6 +511,33 @@ class _SimpleMapState extends State<SimpleMap> {
                   ],
                 ),
               ],
+            ),
+
+            // Zoom buttons overlay
+            Positioned(
+              left: 16,
+              bottom: 120, // Positioned above the debug info
+              child: Column(
+                children: [
+                  // Zoom in button
+                  FloatingActionButton(
+                    heroTag: 'zoom_in',
+                    mini: true,
+                    backgroundColor: Colors.white,
+                    onPressed: _zoomIn,
+                    child: const Icon(Icons.add, color: Colors.black),
+                  ),
+                  const SizedBox(height: 10),
+                  // Zoom out button
+                  FloatingActionButton(
+                    heroTag: 'zoom_out',
+                    mini: true,
+                    backgroundColor: Colors.white,
+                    onPressed: _zoomOut,
+                    child: const Icon(Icons.remove, color: Colors.black),
+                  ),
+                ],
+              ),
             ),
 
             // Navigation instruction banner

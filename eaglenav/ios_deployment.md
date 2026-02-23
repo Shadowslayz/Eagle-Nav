@@ -112,4 +112,4 @@ Flutter will detect your iPhone and deploy the app to it.
 
 ## Re-signing After 7 Days
 
-With a free Apple ID, the provisioning profile expires every 7 days. To re-sign, simply open Xcode and hit the play button — Xcode handles it automatically. It is not as painful as it sounds.
+With a free Apple ID, the provisioning profile expires every 7 days. To re-sign, simply open Xcode and hit the play button — Xcode handles it automatically.

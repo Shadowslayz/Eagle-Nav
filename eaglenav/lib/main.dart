@@ -3,7 +3,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_tts/flutter_tts.dart';
-import 'features/map/presentation/map_screen.dart';
+import 'features/navigation/presentation/navigation_screen.dart';
 
 final FlutterLocalNotificationsPlugin fln = FlutterLocalNotificationsPlugin();
 final FlutterTts flutterTts = FlutterTts();
@@ -196,7 +196,7 @@ class HomeScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const MapTestScreen(),
+                    builder: (context) => const NavigationScreen(),
                   ),
                 );
               },

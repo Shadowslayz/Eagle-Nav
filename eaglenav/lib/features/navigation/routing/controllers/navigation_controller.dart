@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:latlong2/latlong.dart' as ll;
 import '../services/valhalla_service.dart';
 import '../services/speech.dart';
-import '../services/haptics.dart';
+import '../../services/haptics.dart';
 
 class NavigationController {
   final Speech _speech = Speech();

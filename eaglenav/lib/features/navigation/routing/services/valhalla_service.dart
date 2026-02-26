@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart' as ll;
-import '/features/map/utils/polyline_decoder.dart';
+import '../../utils/polyline_decoder.dart';
 import 'package:flutter/foundation.dart';
 
 /// Fetch a Valhalla route and return decoded polyline6 points for flutter_map.
@@ -11,11 +11,11 @@ Future<List<ll.LatLng>> getValhallaRoutePolyline6({
   required ll.LatLng destination,
   String costing = "pedestrian",
 }) async {
-  print('🚀 Starting Valhalla request');
-  print('🌐 Base URL: $valhallaBaseUrl');
+  print('Starting Valhalla request');
+  print(' Base URL: $valhallaBaseUrl');
 
   final uri = Uri.parse('$valhallaBaseUrl/route');
-  print('🔗 Full URI: $uri');
+  print('Full URI: $uri');
 
   final body = {
     "locations": [
@@ -40,7 +40,7 @@ Future<List<ll.LatLng>> getValhallaRoutePolyline6({
     print('📦 Response body: ${resp.body}');
 
     if (resp.statusCode != 200) {
-      print('❌ Non-200 status code!');
+      print('Non-200 status code!');
       return [];
     }
 
@@ -48,44 +48,44 @@ Future<List<ll.LatLng>> getValhallaRoutePolyline6({
     print('📋 Response keys: ${data.keys.toList()}');
 
     if (!data.containsKey('trip')) {
-      print('❌ No "trip" key in response!');
+      print('No "trip" key in response!');
       return [];
     }
 
     print('📋 Trip keys: ${data['trip'].keys.toList()}');
 
     if (!data['trip'].containsKey('legs')) {
-      print('❌ No "legs" key in trip!');
+      print('No "legs" key in trip!');
       return [];
     }
 
     final legs = data['trip']['legs'] as List;
-    print('📊 Number of legs: ${legs.length}');
+    print('Number of legs: ${legs.length}');
 
     if (legs.isEmpty) {
-      print('❌ Legs array is empty!');
+      print('Legs array is empty!');
       return [];
     }
 
-    print('📋 First leg keys: ${legs[0].keys.toList()}');
+    print('First leg keys: ${legs[0].keys.toList()}');
 
     final encoded = data['trip']['legs'][0]['shape'] as String;
-    print('🔤 Encoded polyline: ${encoded.substring(0, 50)}...');
-    print('📏 Encoded length: ${encoded.length}');
+    print('Encoded polyline: ${encoded.substring(0, 50)}...');
+    print('Encoded length: ${encoded.length}');
 
     final decoded = await compute(decodePolyline, encoded);
 
     print('✨ Decoded ${decoded.length} points');
 
     if (decoded.isNotEmpty) {
-      print('🎯 First point: ${decoded.first}');
-      print('🎯 Last point: ${decoded.last}');
+      print('First point: ${decoded.first}');
+      print('Last point: ${decoded.last}');
     }
 
     return decoded;
   } catch (e, stackTrace) {
-    print('❌ Error: $e');
-    print('❌ Stack trace: $stackTrace');
+    print('Error: $e');
+    print('Stack trace: $stackTrace');
     return [];
   }
 }
@@ -154,7 +154,7 @@ Future<ValhallaRoute?> getValhallaRoute({
   required ll.LatLng destination,
   String costing = "pedestrian",
 }) async {
-  print('🚀 Starting Valhalla request with directions');
+  print('Starting Valhalla request with directions');
 
   final uri = Uri.parse('$valhallaBaseUrl/route');
 
@@ -177,14 +177,14 @@ Future<ValhallaRoute?> getValhallaRoute({
     );
 
     if (resp.statusCode != 200) {
-      print('❌ Error: ${resp.statusCode} - ${resp.body}');
+      print('Error: ${resp.statusCode} - ${resp.body}');
       return null;
     }
 
     final data = jsonDecode(resp.body) as Map<String, dynamic>;
 
     if (!data.containsKey('trip') || !data['trip'].containsKey('legs')) {
-      print('❌ Invalid response structure');
+      print('Invalid response structure');
       return null;
     }
 
@@ -223,7 +223,7 @@ Future<ValhallaRoute?> getValhallaRoute({
 
     final summary = firstLeg['summary'] as Map<String, dynamic>? ?? {};
 
-    print('✅ Route: ${steps.length} steps, ${polyline.length} points');
+    print('Route: ${steps.length} steps, ${polyline.length} points');
 
     return ValhallaRoute(
       polyline: polyline,
@@ -232,7 +232,7 @@ Future<ValhallaRoute?> getValhallaRoute({
       totalTimeSeconds: (summary['time'] as num?)?.toDouble() ?? 0.0,
     );
   } catch (e, stackTrace) {
-    print('❌ Error: $e');
+    print('Error: $e');
     print('Stack trace: $stackTrace');
     return null;
   }

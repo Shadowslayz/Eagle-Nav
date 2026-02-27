@@ -1,0 +1,67 @@
+{
+  "type": "FeatureCollection",
+  "appSchema": "campusnav.v1",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.06758009089834, -118.16675909474695] },
+      "properties": {
+        "id": "fine_arts_building",
+        "name": "Fine Arts Building",
+        "kind": "building",
+        "speakable": true,
+        "center": [34.06758009089834, -118.16675909474695],
+        "entrances": [
+          {
+            "id": "entr_arts_north",
+            "coordinates": [34.06754331506277, -118.16664572292852],
+            "accessible": true,
+            "speakable": true,
+            "description": "Fine Arts - North Entrance"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.06792390311425, -118.16588442964995] },
+      "properties": {
+        "id": "king_hall",
+        "name": "King Hall",
+        "kind": "building",
+        "speakable": true,
+        "center": [34.06792390311425, -118.16588442964995],
+        "entrances": [
+          {
+            "id": "entr_king_a",
+            "coordinates": [34.06792390311425, -118.16588442964995],
+            "accessible": true,
+            "speakable": true,
+            "description": "King Hall — Entrance A (Accessible)"
+          },
+          {
+            "id": "entr_king_b",
+            "coordinates": [34.06756388149678, -118.1660030928434],
+            "accessible": true,
+            "speakable": true,
+            "description": "King Hall — Entrance B Wing (Accessible)"
+          },
+          {
+            "id": "entr_king_c",
+            "coordinates": [34.06806529142112, -118.16599505337277],
+            "accessible": true,
+            "speakable": true,
+            "description": "King Hall — Entrance C Wing (Accessible)"
+          },
+          {
+            "id": "entr_king_d",
+            "coordinates": [34.068254606080096, -118.16662153714222],
+            "accessible": true,
+            "speakable": true,
+            "description": "King Hall — Entrance D Wing (Accessible)"
+          }
+        ]
+      }
+    }
+  ]
+}

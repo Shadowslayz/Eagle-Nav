@@ -1,11 +1,10 @@
 name: object_detection
 description: "A new Flutter project."
-publish_to: 'none'
-
+publish_to: "none"
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.9.2
+  sdk: ">=3.0.0 <4.0.0"
 
 dependencies:
   flutter:
@@ -13,20 +12,19 @@ dependencies:
 
   cupertino_icons: ^1.0.8
 
-  # 🧠 Object detection + Text-to-speech
-  ultralytics_yolo: ^0.1.40
+  # ✅ Ultralytics official plugin (newer overlay + segmentation support)
+  ultralytics_yolo: ^0.2.0
   flutter_tts: ^3.8.5
-  
-  # 🔔 Notifications (using old version to match your code)
-  flutter_local_notifications: 17.2.4
-  timezone: 0.9.4
-  
-  # 📍 Location & Permissions
-  geolocator: ^14.0.2
+
+  # 🔔 Notifications
+  flutter_local_notifications: ^17.2.4
+  timezone: ^0.9.4
+
+  # 📍 Location
+  geolocator: ^9.0.2
+
   permission_handler: ^12.0.1
-  
-  # 💾 Storage
-  path_provider: ^2.1.5
+  path_provider: ^2.1.2
 
 dev_dependencies:
   flutter_test:
@@ -37,4 +35,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
-    - assets/models/yolo11n.tflite
+    - assets/models/

@@ -5,6 +5,7 @@ import 'package:timezone/timezone.dart' as tz;
 import 'screens/CVision.dart';
 
 
+
 final FlutterLocalNotificationsPlugin fln = FlutterLocalNotificationsPlugin();
 
 void main() async {
@@ -53,7 +54,8 @@ class _MainLayoutState extends State<MainLayout> {
     NotificationsScreen(),
     ProfileScreen(),
     EmergencyScreen(),
-    CVisionScreen(),
+    const CVisionObjectsScreen(),
+
   ];
 
   void _onItemTapped(int index) {

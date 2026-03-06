@@ -1,4 +1,5 @@
 import 'package:eaglenav/features/navigation/controllers/location_controller.dart';
+import 'package:eaglenav/features/navigation/controllers/ui_navigation_controller.dart';
 import 'package:eaglenav/features/navigation/routing/controllers/routing_controller.dart';
 import 'package:eaglenav/features/navigation/controllers/guidance_controller.dart';
 import 'package:flutter/material.dart';
@@ -8,17 +9,19 @@ import '/config/app_config.dart';
 import '../services/location_service.dart';
 import '../widgets/building_search_bar.dart';
 import '../widgets/pulsing_location_marker.dart';
+import '../widgets/destination_selection_sheet.dart';
 
 /// ─── NavigationScreen ────────────────────────────────────────────────────────
 ///
 /// The single presentation layer for the navigation feature.
-/// Owns no business logic — it wires three controllers together and reacts
+/// Owns no business logic — it wires four controllers together and reacts
 /// to their state.
 ///
 /// Controller responsibilities:
 ///   LocationController  → permissions, GPS stream, currentLocation
 ///   RoutingController   → route fetching, polyline, deviation, rerouting
 ///   GuidanceController  → step progression, TTS announcements, haptics
+///   UiNavigationController → UI state machine of navigation states
 ///
 /// Wiring on each GPS tick:
 ///   1. LocationController notifies with new position
@@ -39,10 +42,12 @@ class NavigationScreen extends StatefulWidget {
 }
 
 class _NavigationScreenState extends State<NavigationScreen> {
+  // Initialize the controllers
   late final MapController _mapController;
   late final LocationController _locationController;
   late final RoutingController _routingController;
   late final GuidanceController _guidanceController;
+  late final UiNavigationController _uiController;
 
   ll.LatLng? _destination;
 
@@ -57,6 +62,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
       valhallaBaseUrl: AppConfig.valhallaBaseUrl,
     );
     _guidanceController = GuidanceController();
+    _uiController = UiNavigationController();
 
     // ── Wire: location → routing + guidance ───────────────
     // On every GPS tick, push the position through both controllers.
@@ -127,6 +133,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
 
   // ── User actions ──────────────────────────────────────────
 
+  // user selects building
   void _onBuildingSelected(destination) {
     final entrance = destination.mainEntrance;
     if (entrance == null) return;
@@ -134,6 +141,11 @@ class _NavigationScreenState extends State<NavigationScreen> {
     final dest = ll.LatLng(entrance.latitude, entrance.longitude);
     setState(() => _destination = dest);
     _mapController.move(dest, 17.0);
+
+    _uiController.setState(
+      NavigationUIState.destinationSelected,
+      destination: destination,
+    );
   }
 
   Future<void> _loadRoute() async {
@@ -191,6 +203,47 @@ class _NavigationScreenState extends State<NavigationScreen> {
   }
 
   // ── Helpers ───────────────────────────────────────────────
+  Widget _buildBottomPanel() {
+    return ListenableBuilder(
+      listenable: _uiController,
+      builder: (context, _) {
+        switch (_uiController.state) {
+          case NavigationUIState.destinationSelected:
+            // obtain destination information directly from controller
+            final dest = _uiController.selectedDestination;
+            return Positioned(
+              bottom: 20,
+              left: 16,
+              right: 16,
+              child: DestinationSelectionSheet(
+                onCancel: () => _uiController.setState(NavigationUIState.idle),
+                onStart: _startNavigation,
+                onLoad: _loadRoute,
+                destinationName: dest.name,
+              ),
+            );
+          case NavigationUIState.navigating:
+            // TurnByTurnPanel integration later
+            return const SizedBox.shrink();
+          default:
+            return const SizedBox.shrink(); // Hide when idle
+        }
+      },
+    );
+  }
+
+  /// Zoom in logic
+  void _zoomIn() {
+    final currentZoom = _mapController.camera.zoom;
+    _mapController.move(_mapController.camera.center, currentZoom + 1);
+  }
+
+  /// Zoom out logic
+  void _zoomOut() {
+    final currentZoom = _mapController.camera.zoom;
+    _mapController.move(_mapController.camera.center, currentZoom - 1);
+  }
+
   void _showSnackBar(String message, {Color? color}) {
     if (!mounted) return;
     ScaffoldMessenger.of(
@@ -213,6 +266,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final topPadding = MediaQuery.of(context).padding.top;
     return Scaffold(
       body: ListenableBuilder(
         // Rebuild when any controller changes
@@ -293,13 +347,44 @@ class _NavigationScreenState extends State<NavigationScreen> {
 
               // ── Search bar ────────────────────────────────
               Positioned(
-                top: 26,
+                // Phone's safe area + 16 pixels of breathing room
+                top: topPadding + 16,
                 left: 16,
                 right: 16,
                 child: BuildingSearchBar(
                   onBuildingSelected: _onBuildingSelected,
                 ),
               ),
+
+              // Zoom buttons overlay
+              Positioned(
+                left: 16,
+                bottom: 120, // Positioned above the debug info
+                child: Column(
+                  children: [
+                    // Zoom in button
+                    FloatingActionButton(
+                      heroTag: 'zoom_in',
+                      mini: true,
+                      backgroundColor: Colors.white,
+                      onPressed: _zoomIn,
+                      child: const Icon(Icons.add, color: Colors.black),
+                    ),
+                    const SizedBox(height: 10),
+                    // Zoom out button
+                    FloatingActionButton(
+                      heroTag: 'zoom_out',
+                      mini: true,
+                      backgroundColor: Colors.white,
+                      onPressed: _zoomOut,
+                      child: const Icon(Icons.remove, color: Colors.black),
+                    ),
+                  ],
+                ),
+              ),
+
+              // -- Navigation panel (UI state machine) ────────────────────────
+              _buildBottomPanel(),
 
               // ── Turn-by-turn panel ────────────────────────
               if (currentStep != null && isNavigating)
@@ -325,21 +410,21 @@ class _NavigationScreenState extends State<NavigationScreen> {
                 ),
 
               // ── Debug overlay ─────────────────────────────
-              Positioned(
-                bottom: 10,
-                left: 10,
-                child: _DebugOverlay(
-                  polylinePoints: polyline.length,
-                  position: position,
-                  status: _routingController.status,
-                  locationStatus: _locationController.status,
-                ),
-              ),
+              // Positioned(
+              //   bottom: 10,
+              //   left: 10,
+              //   child: _DebugOverlay(
+              //     polylinePoints: polyline.length,
+              //     position: position,
+              //     status: _routingController.status,
+              //     locationStatus: _locationController.status,
+              //   ),
+              // ),
 
               // ── FABs ──────────────────────────────────────
               Positioned(
                 right: 16,
-                bottom: 100,
+                bottom: 500,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -466,7 +551,7 @@ class _ReroutingBanner extends StatelessWidget {
   }
 }
 
-class _DebugOverlay extends StatelessWidget {
+/* class _DebugOverlay extends StatelessWidget {
   final int polylinePoints;
   final ll.LatLng? position;
   final RoutingStatus status;
@@ -532,4 +617,4 @@ class _DebugOverlay extends StatelessWidget {
       ),
     );
   }
-}
+} */

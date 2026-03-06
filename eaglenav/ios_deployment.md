@@ -91,22 +91,83 @@ Find iOS in the list and download the version that matches your iPhone. Once ins
 
 ---
 
-## Step 8: Run the App
+## Step 8: Update app_config.dart with Your Machine's IP
 
-Once your device is paired and signing is set up, open the **eaglenav** project in VS Code. Open the integrated terminal (`Terminal > New Terminal`) and make sure you are inside the `eaglenav` folder — you should see it in the terminal prompt. Then run:
+The app connects to the Valhalla routing server running on your machine via Docker.
+On an emulator this works automatically, but a physical iPhone is on your WiFi
+network and needs your machine's actual local IP address to reach it.
 
-```bash
-cd eaglenav
-flutter run
+Open `lib/config/app_config.dart` and update the `_localNetworkIp` field:
+
+```dart
+static const String _localNetworkIp = '192.168.x.x'; // ← replace this
 ```
 
-> Make sure the terminal is opened from within the `eaglenav` folder in VS Code, not a parent directory. Running `flutter run` from the wrong directory is a common reason it fails to find the project.
+### Finding your IP
 
-Flutter will detect your iPhone and deploy the app to it.
+**Mac:**
+```bash
+ipconfig getifaddr en0
+```
 
-> **Keychain prompt:** The first time you run, macOS will show a system dialog saying `codesign wants to access "Apple Development" in your keychain`. Enter your **Mac login password** and click **Always Allow** so it doesn't prompt you on every build.
+**Windows:**
+```bash
+ipconfig
+# look for "IPv4 Address" under your WiFi adapter
+```
 
-> **Trust the Developer Certificate on your iPhone:** After the first build, the app may be blocked on your device. Go to `Settings > General > VPN & Device Management`, select your Developer App certificate, and tap **Trust**.
+**Linux:**
+```bash
+ip route get 1 | awk '{print $7}'
+```
+
+The result will look like `192.168.1.42` or `10.0.0.5`. Paste that value into
+`_localNetworkIp`. Your iPhone and your machine must be on the **same WiFi network**
+for this to work.
+
+> **Heads up:** Your local IP can change if your router reassigns it (e.g. after a
+> restart). If routing stops working on the physical device, re-run the command above
+> and update the field. To avoid this permanently, set a static IP for your machine
+> in your router's DHCP settings.
+
+---
+
+## Step 9: Run the App
+
+Once your device is paired, signing is set up, and the IP is updated, open the
+**eaglenav** project in VS Code. Open the integrated terminal (`Terminal > New Terminal`)
+and make sure you are inside the `eaglenav` folder, then run with the physical device flag:
+
+### Quick development build
+```bash
+flutter run --dart-define=PHYSICAL_DEVICE=true
+```
+Use this during active development. The app compiles faster in debug mode and
+supports hot reload (`r` in the terminal to reload, `R` to restart). Performance
+will feel slightly slower than the final app — this is normal.
+
+### Standalone release build
+```bash
+flutter run --release --dart-define=PHYSICAL_DEVICE=true
+```
+Use this when you want to test the app as it will actually feel for a real user —
+full performance, no debug overhead. Takes longer to compile (a few minutes) but
+the result runs independently on the phone without needing the Mac connected.
+Hot reload is not available in release mode.
+
+> **Rule of thumb:** use `flutter run` while iterating on features, switch to
+> `flutter run --release` when testing navigation performance, GPS accuracy,
+> or showing the app to someone.
+
+> **Keychain prompt:** The first time you run, macOS will show a system dialog
+> saying `codesign wants to access "Apple Development" in your keychain`. Enter
+> your **Mac login password** and click **Always Allow** so it doesn't prompt
+> on every build.
+
+> **Trust the Developer Certificate on your iPhone:** After the first build, the
+> app may be blocked on your device. Go to
+> `Settings > General > VPN & Device Management`, select your Developer App
+> certificate, and tap **Trust**.
 
 ---
 

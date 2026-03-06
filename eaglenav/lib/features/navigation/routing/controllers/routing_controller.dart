@@ -61,9 +61,12 @@ class RoutingController extends ChangeNotifier {
   /// window. Reset when user returns to route or a new route is applied.
   DateTime? _deviationStartTime;
 
+  int _deviationTickCount = 0;
+  static const int _deviationTickThreshold = 3; // 3 consecutive off-route ticks
+
   RoutingController({
     required String valhallaBaseUrl,
-    this.deviationThresholdMeters = 30.0,
+    this.deviationThresholdMeters = 20.0,
     this.deviationDebounce = const Duration(seconds: 3),
     this.costing = 'pedestrian',
   }) : _valhallaBaseUrl = valhallaBaseUrl;
@@ -103,7 +106,8 @@ class RoutingController extends ChangeNotifier {
   void clearRoute() {
     _currentRoute = null;
     _destination = null;
-    _deviationStartTime = null;
+    _deviationTickCount = 0;
+    // _deviationStartTime = null;
     _setStatus(RoutingStatus.idle);
   }
 
@@ -121,19 +125,27 @@ class RoutingController extends ChangeNotifier {
     if (_status != RoutingStatus.active) return null;
 
     final deviation = _distanceToRoute(position);
+    debugPrint('Deviation: ${deviation.toStringAsFixed(1)}m');
     final isDeviated = deviation > deviationThresholdMeters;
 
     if (isDeviated) {
       // Start the debounce clock on first off-route tick
-      _deviationStartTime ??= DateTime.now();
-      final elapsed = DateTime.now().difference(_deviationStartTime!);
-
-      if (elapsed >= deviationDebounce) {
+      //_deviationStartTime ??= DateTime.now();
+      _deviationTickCount++;
+      debugPrint(
+        'Off route tick $_deviationTickCount/$_deviationTickThreshold',
+      );
+      //final elapsed = DateTime.now().difference(_deviationStartTime!);
+      if (_deviationTickCount >= _deviationTickThreshold) {
         _triggerReroute(position);
       }
+      //if (elapsed >= deviationDebounce) {
+      // _triggerReroute(position);
+      // }
     } else {
       // User is back on route — reset the deviation window
-      _deviationStartTime = null;
+      //_deviationStartTime = null;
+      _deviationTickCount = 0;
     }
 
     return deviation;
@@ -180,7 +192,8 @@ class RoutingController extends ChangeNotifier {
   /// debounce clock clean.
   void _applyRoute(ValhallaRoute route) {
     _currentRoute = route;
-    _deviationStartTime = null;
+    _deviationTickCount = 0;
+    //_deviationStartTime = null;
     _setStatus(RoutingStatus.active);
   }
 

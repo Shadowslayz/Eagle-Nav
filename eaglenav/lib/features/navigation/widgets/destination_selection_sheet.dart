@@ -1,18 +1,10 @@
 import 'package:flutter/material.dart';
 
-/// ─── DestinationSheet ────────────────────────────────────────────────────────
-///
-/// Shown when a destination is selected but navigation has not started.
-/// Phase: NavigationPhase.destinationSelected
-///
-/// Receives:
-///   buildingName      → name of the selected building for display
-/// TODO: only UI widget for the selection of building
-/// walking distance icon, directions button with icon and start nav button with icon, gps coords)
-/// ─────────────────────────────────────────────────────────────────────────────
 
 class DestinationSelectionSheet extends StatelessWidget {
   final String destinationName;
+  final bool isNavigating; 
+  // flag to toggle button state
 
   final VoidCallback onLoad;
   final VoidCallback onCancel;
@@ -24,6 +16,8 @@ class DestinationSelectionSheet extends StatelessWidget {
     required this.onLoad,
     required this.onStart,
     required this.onCancel,
+    this.isNavigating = false, 
+    // default to false
   });
 
   @override
@@ -38,29 +32,38 @@ class DestinationSelectionSheet extends StatelessWidget {
           children: [
             Text(
               destinationName,
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             const Text("Walking distance: -- mins"),
             const SizedBox(height: 16),
             Row(
               children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: onCancel,
-                    child: const Text("Cancel"),
+                // only show cancel if we aren't navigating
+                if (!isNavigating) ...[
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: onCancel,
+                      child: const Text("Cancel"),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
+                  const SizedBox(width: 12),
+                ],
+                //main action button (Navigate / End Navigation)
                 Expanded(
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
+                      backgroundColor: isNavigating ? Colors.red : Colors.blue,
+                      
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     onPressed: onStart,
-                    child: const Text(
-                      "Navigate",
-                      style: TextStyle(color: Colors.white),
+                    child: Text(
+                      isNavigating ? "End Navigation" : "Navigate",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),

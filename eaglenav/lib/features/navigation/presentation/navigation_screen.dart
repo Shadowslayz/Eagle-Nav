@@ -186,6 +186,12 @@ class _NavigationScreenState extends State<NavigationScreen> {
       _showSnackBar('Select a destination first');
       return;
     }
+    // Check if we are already navigating; if so, this button acts as "End"
+    if (_guidanceController.isNavigating) {
+      _stopNavigation();
+      _uiController.setState(NavigationUIState.idle); // Close the sheet
+      return;
+    }
     final origin = _locationController.currentLocation;
     if (origin == null) {
       _showSnackBar('Waiting for GPS...');
@@ -205,29 +211,32 @@ class _NavigationScreenState extends State<NavigationScreen> {
   // ── Helpers ───────────────────────────────────────────────
   Widget _buildBottomPanel() {
     return ListenableBuilder(
-      listenable: _uiController,
+      //  listen to both controllers to ensure the button reacts to navigation status
+      listenable: Listenable.merge([_uiController, _guidanceController]),
       builder: (context, _) {
-        switch (_uiController.state) {
-          case NavigationUIState.destinationSelected:
-            // obtain destination information directly from controller
-            final dest = _uiController.selectedDestination;
-            return Positioned(
-              bottom: 20,
-              left: 16,
-              right: 16,
-              child: DestinationSelectionSheet(
-                onCancel: () => _uiController.setState(NavigationUIState.idle),
-                onStart: _startNavigation,
-                onLoad: _loadRoute,
-                destinationName: dest.name,
-              ),
-            );
-          case NavigationUIState.navigating:
-            // TurnByTurnPanel integration later
-            return const SizedBox.shrink();
-          default:
-            return const SizedBox.shrink(); // Hide when idle
+        // if a destination is selected OR if we are actively navigating
+        if (_uiController.state == NavigationUIState.destinationSelected ||
+            _guidanceController.isNavigating) {
+          final dest = _uiController.selectedDestination;
+
+          return Positioned(
+            bottom: 20,
+            left: 16,
+            right: 16,
+            child: DestinationSelectionSheet(
+              onCancel: () {
+                _stopNavigation();
+                _uiController.setState(NavigationUIState.idle);
+              },
+              onStart: _startNavigation,
+              onLoad: _loadRoute,
+              destinationName: dest?.name ?? "Destination",
+              // flag to check
+              isNavigating: _guidanceController.isNavigating,
+            ),
+          );
         }
+        return const SizedBox.shrink();
       },
     );
   }
@@ -281,6 +290,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
           final isNavigating = _guidanceController.isNavigating;
           final currentStep = _guidanceController.currentStep;
           final isRerouting = _routingController.isRerouting;
+          final isDestinationSelected = _uiController.state == NavigationUIState.destinationSelected;
 
           return Stack(
             children: [
@@ -357,12 +367,14 @@ class _NavigationScreenState extends State<NavigationScreen> {
               ),
 
               // Zoom buttons overlay
-              Positioned(
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
                 left: 16,
-                bottom: 120, // Positioned above the debug info
+                // Move up if we are selecting a destination OR if we are already navigating
+                bottom: (isNavigating || isDestinationSelected) ? 240 : 120,
                 child: Column(
                   children: [
-                    // Zoom in button
                     FloatingActionButton(
                       heroTag: 'zoom_in',
                       mini: true,
@@ -371,7 +383,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
                       child: const Icon(Icons.add, color: Colors.black),
                     ),
                     const SizedBox(height: 10),
-                    // Zoom out button
                     FloatingActionButton(
                       heroTag: 'zoom_out',
                       mini: true,

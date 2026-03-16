@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'compass_demo.dart';
 
 void main() {
   runApp(EagleNavApp());
+
+  final compass = CompassDemo();
+  compass.start();
 }
 
 class EagleNavApp extends StatelessWidget {

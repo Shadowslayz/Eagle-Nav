@@ -71,7 +71,7 @@ class _BuildingSearchBarState extends State<BuildingSearchBar> {
     widget.onBuildingSelected?.call(building);
 
     // Show selected building info
-    if (mounted) {
+    /* if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Selected: ${building.name}'),
@@ -85,7 +85,7 @@ class _BuildingSearchBarState extends State<BuildingSearchBar> {
           ),
         ),
       );
-    }
+    } */
   }
 
   @override

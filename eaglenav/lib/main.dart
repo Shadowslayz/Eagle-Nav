@@ -206,79 +206,8 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-class MapTestScreen extends StatelessWidget {
-  const MapTestScreen({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Map Test Mode'),
-        backgroundColor: const Color.fromARGB(255, 161, 133, 40),
-      ),
-      body: const RepaintBoundary(child: SimpleMap()),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color.fromARGB(255, 161, 133, 40),
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Map test started! (Simulating route setup...)'),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        },
-        child: const Icon(Icons.play_arrow_rounded),
-      ),
-    );
-  }
-}
 
-class SimpleMap extends StatefulWidget {
-  const SimpleMap({super.key});
-
-  @override
-  State<SimpleMap> createState() => _SimpleMapState();
-}
-
-class _SimpleMapState extends State<SimpleMap> {
-  late MapController mapController;
-
-  @override
-  void initState() {
-    super.initState();
-    mapController = MapController();
-  }
-
-  @override
-  void dispose() {
-    mapController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: FlutterMap(
-        mapController: mapController,
-        options: const MapOptions(
-          initialCenter: LatLng(34.067, -118.170),
-          initialZoom: 16.0,
-          interactionOptions: InteractionOptions(
-            flags: InteractiveFlag.drag | InteractiveFlag.pinchZoom,
-          ),
-        ),
-        children: [
-          TileLayer(
-            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            userAgentPackageName: 'com.example.eagle_nav_app',
-            maxZoom: 18.0,
-            minZoom: 12.0,
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class FavoritesScreen extends StatelessWidget {
   const FavoritesScreen({super.key});

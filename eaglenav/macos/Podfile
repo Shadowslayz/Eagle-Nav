@@ -36,10 +36,13 @@ target 'Runner' do
 end
 
 post_install do |installer|
+  #check this i dont know if this is right
   installer.pods_project.targets.each do |t|
     t.build_configurations.each do |config|
       config.build_settings['MACOSX_DEPLOYMENT_TARGET'] = '10.14'  # or '10.15'
       config.build_settings['SWIFT_VERSION'] = '5.0'
     end
+  installer.pods_project.targets.each do |target|
+    flutter_additional_macos_build_settings(target)
   end
 end

@@ -9,7 +9,7 @@ android {
     namespace = "com.example.eaglenav"
     compileSdk = 36  // Keep latest API
 
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -43,3 +43,4 @@ flutter {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
+

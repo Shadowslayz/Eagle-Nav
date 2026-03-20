@@ -117,10 +117,7 @@ class _MainLayoutState extends State<MainLayout> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Favorites'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.notifications), label: 'Alerts/Events'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-          BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'Alerts'),
+          BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'Alerts/Events'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
           BottomNavigationBarItem(icon: Icon(Icons.warning, color: Colors.red), label: 'Emergency'),
           BottomNavigationBarItem(icon: Icon(Icons.add_a_photo_outlined), label: 'CVision'),

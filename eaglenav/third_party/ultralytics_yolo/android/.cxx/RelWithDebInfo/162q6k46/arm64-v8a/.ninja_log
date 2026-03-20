@@ -1,0 +1,21 @@
+# ninja log v5
+18	65	1773611173964373476	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/arm64-v8a/libultralytics.so	1f4f388d9d4d9d4f
+0	486	1773602701201046831	CMakeFiles/ultralytics.dir/native-lib.cpp.o	60ddc8c2d9efdca1
+0	32	1773784429817863631	build.ninja	8cc1ad1b746cced
+0	5	0	clean	fc331182e77667a9
+0	5	0	clean	fc331182e77667a9
+0	5	0	clean	fc331182e77667a9
+0	4	0	clean	fc331182e77667a9
+0	5	0	clean	fc331182e77667a9
+0	6	0	clean	fc331182e77667a9
+0	5	0	clean	fc331182e77667a9
+0	5	0	clean	fc331182e77667a9
+0	5	0	clean	fc331182e77667a9
+0	5	0	clean	fc331182e77667a9
+0	4	0	clean	fc331182e77667a9
+0	5	0	clean	fc331182e77667a9
+0	4	0	clean	fc331182e77667a9
+0	5	0	clean	fc331182e77667a9
+0	5	0	clean	fc331182e77667a9
+0	4	0	clean	fc331182e77667a9
+0	5	0	clean	fc331182e77667a9

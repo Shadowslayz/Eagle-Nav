@@ -1,0 +1,6 @@
+# ninja log v5
+0	661	1773963151123043268	CMakeFiles/ultralytics.dir/native-lib.cpp.o	9ae586fc1a5dea99
+663	701	1773963151168545737	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/arm64-v8a/libultralytics.so	a945b243be859f61
+2	71	1773963309613521125	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/arm64-v8a/libultralytics.so	a945b243be859f61
+2	80	1773963770863954716	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/arm64-v8a/libultralytics.so	a945b243be859f61
+2	108	1773964587026590055	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/arm64-v8a/libultralytics.so	a945b243be859f61

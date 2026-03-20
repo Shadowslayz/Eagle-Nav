@@ -1,21 +1,11 @@
 # ninja log v5
-3	42	1773611174119986154	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/x86/libultralytics.so	930a64cf8826d784
-0	339	1773602702564899239	CMakeFiles/ultralytics.dir/native-lib.cpp.o	f7073a3b11f82e9c
-0	27	1773784429861918188	build.ninja	606708872445bd03
 0	5	0	clean	fc331182e77667a9
+0	27	1773981075111702102	build.ninja	606708872445bd03
+0	339	1773602702564899239	CMakeFiles/ultralytics.dir/native-lib.cpp.o	f7073a3b11f82e9c
+3	42	1773611174119986154	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/x86/libultralytics.so	930a64cf8826d784
+0	25	1773981075111702102	build.ninja	606708872445bd03
+0	4	0	clean	fc331182e77667a9
 0	4	0	clean	fc331182e77667a9
 0	5	0	clean	fc331182e77667a9
 0	5	0	clean	fc331182e77667a9
-0	5	0	clean	fc331182e77667a9
-0	7	0	clean	fc331182e77667a9
-0	5	0	clean	fc331182e77667a9
-0	6	0	clean	fc331182e77667a9
-0	5	0	clean	fc331182e77667a9
-0	5	0	clean	fc331182e77667a9
-0	6	0	clean	fc331182e77667a9
-0	5	0	clean	fc331182e77667a9
-0	5	0	clean	fc331182e77667a9
-0	5	0	clean	fc331182e77667a9
-0	5	0	clean	fc331182e77667a9
-0	5	0	clean	fc331182e77667a9
-0	5	0	clean	fc331182e77667a9
+0	4	0	clean	fc331182e77667a9

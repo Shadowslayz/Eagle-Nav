@@ -15,9 +15,7 @@ import com.google.ar.core.exceptions.NotYetAvailableException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.Locale
-import java.util.concurrent.Callable
 import java.util.concurrent.Executors
-import java.util.concurrent.Future
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.abs
@@ -47,9 +45,9 @@ class ArCoreYoloRenderer(
         assetManager = context.assets,
         modelAssetPath = "yolo11n.tflite",
     ).apply {
-        confidenceThreshold = 0.25f
+        confidenceThreshold = 0.13f
         iouThreshold = 0.5f
-        maxDetections = 25
+        maxDetections = 30
     }
 
     // ── No throttle — run as fast as inference completes ──────────────────
@@ -124,7 +122,12 @@ class ArCoreYoloRenderer(
         }
     }
 
-    // ── Main pipeline ─────────────────────────────────────────────────────
+    // ── Cached measurements — updated async, never blocks GL ────────────
+    private val measurementCache = HashMap<String, Measurement>()
+    private var lastMeasureTimeNs: Long = 0L
+    private val measureIntervalNs: Long = 500_000_000L  // Recalculate every 500ms
+
+    // ── Main pipeline (fully non-blocking) ────────────────────────────────
 
     private fun runPipeline(frame: Frame) {
         val camera = frame.camera
@@ -157,35 +160,42 @@ class ArCoreYoloRenderer(
         val nowMs = System.currentTimeMillis()
         val depthCtx = if (nowMs - depthTimestampMs < maxDepthAgeMs) activeDepthCtx.get() else null
 
-        // ── Parallel measurement computation ──────────────────────────────
-        // Submit all measurement tasks to the pool simultaneously.
-        data class DetResult(
-            val d: YoloTfliteDetector.Detection,
-            val rectView: RectF,
-            val measurement: Future<Measurement?>?,
-        )
-
-        val detResults = ArrayList<DetResult>(detections.size)
-        for (d in detections) {
-            val rectView = imageRectToViewRect(frame, d.left, d.top, d.right, d.bottom) ?: continue
-            val future = if (depthCtx != null) {
-                measurePool.submit(Callable {
-                    computeMeasurement(depthCtx, d.classId, d.left, d.top, d.right, d.bottom)
-                })
-            } else null
-            detResults.add(DetResult(d, rectView, future))
+        // ── Throttled fire-and-forget measurements ────────────────────────
+        // Only submit new measurement work every 500ms — not every frame.
+        // This frees up massive CPU for YOLO detection.
+        val nowNs = System.nanoTime()
+        if (depthCtx != null && (nowNs - lastMeasureTimeNs) > measureIntervalNs) {
+            lastMeasureTimeNs = nowNs
+            for (d in detections) {
+                val key = "${d.classId}_${(d.left / 40).roundToInt()}_${(d.top / 40).roundToInt()}"
+                val cId = d.classId
+                val l = d.left; val t = d.top; val r = d.right; val b = d.bottom
+                try {
+                    measurePool.execute {
+                        val m = computeMeasurement(depthCtx, cId, l, t, r, b)
+                        if (m != null) {
+                            val smoothed = smoother.smooth(key, m)
+                            synchronized(measurementCache) {
+                                measurementCache[key] = smoothed
+                            }
+                        }
+                    }
+                } catch (_: Throwable) {}
+            }
         }
 
-        // Collect results and build overlay.
-        val overlayItems = ArrayList<OverlayItem>(detResults.size)
-        val payload = ArrayList<Map<String, Any>>(detResults.size)
+        // ── Build overlay using cached measurements (instant) ─────────────
+        val overlayItems = ArrayList<OverlayItem>(detections.size)
+        val payload = ArrayList<Map<String, Any>>(detections.size)
 
-        for (dr in detResults) {
-            val d = dr.d
-            val rawMeasurement = try { dr.measurement?.get() } catch (_: Throwable) { null }
+        for (d in detections) {
+            // Skip bounding box entirely for low-confidence detections
+            if (d.score < 0.15f) continue
 
-            val smoothKey = "${d.classId}_${(d.left / 40).roundToInt()}_${(d.top / 40).roundToInt()}"
-            val smoothed = if (rawMeasurement != null) smoother.smooth(smoothKey, rawMeasurement) else null
+            val rectView = imageRectToViewRect(frame, d.left, d.top, d.right, d.bottom) ?: continue
+
+            val key = "${d.classId}_${(d.left / 40).roundToInt()}_${(d.top / 40).roundToInt()}"
+            val smoothed = synchronized(measurementCache) { measurementCache[key] }
 
             val color = colorForClassId(d.classId)
             val confStr = String.format(Locale.US, "%.0f%%", d.score * 100f)
@@ -195,10 +205,10 @@ class ArCoreYoloRenderer(
                 val hIn = smoothed.heightInches.roundToInt()
                 "${d.className} $confStr ${smoothed.distanceFeet}ft ${smoothed.distanceInches}in ${wIn}x${hIn}in"
             } else {
-                "${d.className} $confStr"
+                "${d.className} $confStr processing..."
             }
 
-            overlayItems.add(OverlayItem(rect = dr.rectView, label = label, colorArgb = color))
+            overlayItems.add(OverlayItem(rect = rectView, label = label, colorArgb = color))
 
             val map = HashMap<String, Any>(10)
             map["class"] = d.className

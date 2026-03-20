@@ -1,6 +1,18 @@
 # ninja log v5
-0	270	1773963152379362295	CMakeFiles/ultralytics.dir/native-lib.cpp.o	1ed03beea3be679
-272	311	1773963152422129099	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/x86/libultralytics.so	94219e76cf2762a9
-2	101	1773963309903216304	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/x86/libultralytics.so	94219e76cf2762a9
-2	105	1773963771126222622	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/x86/libultralytics.so	94219e76cf2762a9
-2	104	1773964587307539647	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/x86/libultralytics.so	94219e76cf2762a9
+0	328	1773975674330511194	CMakeFiles/ultralytics.dir/native-lib.cpp.o	1ed03beea3be679
+330	368	1773975674372784284	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/x86/libultralytics.so	94219e76cf2762a9
+0	5	0	clean	fc331182e77667a9
+2	343	1773981096371728422	CMakeFiles/ultralytics.dir/native-lib.cpp.o	1ed03beea3be679
+344	387	1773981096418479535	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/x86/libultralytics.so	94219e76cf2762a9
+0	6	0	clean	fc331182e77667a9
+2	446	1773981452329398929	CMakeFiles/ultralytics.dir/native-lib.cpp.o	1ed03beea3be679
+446	514	1773981452402523012	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/x86/libultralytics.so	94219e76cf2762a9
+0	4	0	clean	fc331182e77667a9
+2	354	1773981617295161784	CMakeFiles/ultralytics.dir/native-lib.cpp.o	1ed03beea3be679
+354	401	1773981617347003516	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/x86/libultralytics.so	94219e76cf2762a9
+0	6	0	clean	fc331182e77667a9
+2	331	1773984164513633870	CMakeFiles/ultralytics.dir/native-lib.cpp.o	1ed03beea3be679
+332	376	1773984164561396332	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/x86/libultralytics.so	94219e76cf2762a9
+0	4	0	clean	fc331182e77667a9
+2	326	1773986765774060390	CMakeFiles/ultralytics.dir/native-lib.cpp.o	1ed03beea3be679
+326	372	1773986765822935162	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/x86/libultralytics.so	94219e76cf2762a9

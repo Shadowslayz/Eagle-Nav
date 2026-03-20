@@ -1,0 +1,169 @@
+{
+  "type": "FeatureCollection",
+  "appSchema": "campusnav.v1",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.06758009089834, -118.16675909474695] },
+      "properties": {
+        "id": "fine_arts_building",
+        "name": "Fine Arts Building",
+        "kind": "building",
+        "speakable": true,
+        "center": [34.06758009089834, -118.16675909474695],
+        "entrances": [
+          {
+            "id": "entr_arts_north",
+            "coordinates": [34.06754331506277, -118.16664572292852],
+            "accessible": true,
+            "speakable": true,
+            "description": "Fine Arts - North Entrance"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.06792390311425, -118.16588442964995] },
+      "properties": {
+        "id": "king_hall",
+        "name": "King Hall",
+        "kind": "building",
+        "speakable": true,
+        "center": [34.06792390311425, -118.16588442964995],
+        "entrances": [
+          {
+            "id": "entr_king_a",
+            "coordinates": [34.06792390311425, -118.16588442964995],
+            "accessible": true,
+            "speakable": true,
+            "description": "King Hall — Entrance A (Accessible)"
+          },
+          {
+            "id": "entr_king_b",
+            "coordinates": [34.06756388149678, -118.1660030928434],
+            "accessible": true,
+            "speakable": true,
+            "description": "King Hall — Entrance B Wing (Accessible)"
+          },
+          {
+            "id": "entr_king_c",
+            "coordinates": [34.06806529142112, -118.16599505337277],
+            "accessible": true,
+            "speakable": true,
+            "description": "King Hall — Entrance C Wing (Accessible)"
+          },
+          {
+            "id": "entr_king_d",
+            "coordinates": [34.068254606080096, -118.16662153714222],
+            "accessible": true,
+            "speakable": true,
+            "description": "King Hall — Entrance D Wing (Accessible)"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.06736035336804, -118.16744550027887] },
+      "properties": {
+        "id": "library",
+        "name": "CSULA Library",
+        "kind": "building",
+        "speakable": true,
+        "center": [34.06736035336804, -118.16744550027887],
+        "entrances": [
+          {
+            "id": "jfk_lib_n",
+            "coordinates": [34.06745785629236, -118.16744742134989],
+            "accessible": true,
+            "speakable": true,
+            "description": "JFK Libary - North Entrance"
+          },
+          {
+            "id": "jfk_lib_s",
+            "coordinates": [34.067298623106076, -118.16745521107217],
+            "accessible": true,
+            "speakable": true,
+            "description": "JFK Libary - South/Palmer Wing"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.06737498218105, -118.16812275471472] },
+      "properties": {
+        "id": "GE",
+        "name": "Golden Eagle Book Store",
+        "kind": "building",
+        "speakable": true,
+        "center": [34.06737498218105, -118.16812275471472],
+        "entrances": [
+          {
+            "id": "front_entr",
+            "coordinates": [34.06737498218105, -118.16812275471472],
+            "accessible": true,
+            "speakable": true,
+            "description": "Bookstore Front Entrance"
+          },
+          {
+            "id": "back_entr",
+            "coordinates": [34.06714869664169, -118.16841338366686],
+            "accessible": true,
+            "speakable": true,
+            "description": "Bookstore Back Entrance"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.06619055526484, -118.1683308312372] },
+      "properties": {
+        "id": "career_center",
+        "name": "Career Center ",
+        "kind": "building",
+        "speakable": true,
+        "center": [34.06619055526484, -118.1683308312372],
+        "entrances": [
+          {
+            "id": "career_center_entr",
+            "coordinates": [34.06619055526484, -118.1683308312372],
+            "accessible": true,
+            "speakable": true,
+            "description": "Career Center Entrance"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.066619900263134, -118.16668318042561] },
+      "properties": {
+        "id": "eng_tech",
+        "name": "Engineering & Technology Building",
+        "kind": "building",
+        "speakable": true,
+        "center": [34.066619900263134, -118.16668318042561],
+        "entrances": [
+          {
+            "id": "entr_1",
+            "coordinates": [34.066619900263134, -118.16668318042561],
+            "accessible": true,
+            "speakable": true,
+            "description": "Engineering & Technology Open Entrances"
+          },
+          {
+            "id": "entr_2",
+            "coordinates": [34.06680770284571, -118.16648661551247],
+            "accessible": true,
+            "speakable": true,
+            "description": "Engineering & Technology Side Entrance"
+          }
+
+        ]
+      }
+    }
+  ]
+}

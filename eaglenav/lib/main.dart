@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'features/navigation/presentation/navigation_screen.dart';
 import 'screens/events_screen.dart';
+import 'screens/CVision.dart';
+
+
 
 final FlutterLocalNotificationsPlugin fln = FlutterLocalNotificationsPlugin();
 final FlutterTts flutterTts = FlutterTts();
@@ -20,9 +22,9 @@ Future<void> initTts() async {
     await flutterTts.setLanguage("en-US");
     await flutterTts.setPitch(1.0);
     _ttsInitialized = true;
-    print('TTS initialized');
+    debugPrint('TTS initialized');
   } catch (e) {
-    print('TTS init error: $e');
+    debugPrint('TTS init error: $e');
   }
 }
 
@@ -30,16 +32,23 @@ Future<void> initGeolocator() async {
   if (_geolocatorInitialized) return;
   try {
     _geolocatorInitialized = true;
-    print('Geolocator initialized');
+    debugPrint('Geolocator initialized');
   } catch (e) {
-    print('Geolocator init error: $e');
+    debugPrint('Geolocator init error: $e');
   }
 }
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initNotifications(); // ✅ initialize before runApp
-  runApp(const EagleNavApp());
+
+  // ✅ Safe Option 2: Catch notification init errors on unsupported platforms
+  try {
+    await initNotifications();
+  } catch (e) {
+    debugPrint('⚠️ Notifications skipped or failed to init: $e');
+  }
+
+  runApp(EagleNavApp());
 }
 
 class EagleNavApp extends StatelessWidget {
@@ -72,12 +81,13 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> {
   int _selectedIndex = 0;
 
-  final List<Widget> _screens = const [
+  final List<Widget> _screens = [
     HomeScreen(),
     FavoritesScreen(),
     EventsScreen(),
     ProfileScreen(),
     EmergencyScreen(),
+    const CVisionObjectsScreen(),
   ];
 
   void _onItemTapped(int index) => setState(() => _selectedIndex = index);
@@ -99,7 +109,7 @@ class _MainLayoutState extends State<MainLayout> {
         type: BottomNavigationBarType.fixed,
         backgroundColor: const Color.fromARGB(255, 222, 182, 52),
         selectedItemColor: Colors.black,
-        unselectedItemColor: Colors.white,
+        unselectedItemColor: const Color.fromARGB(255, 255, 255, 255),
         selectedIconTheme: const IconThemeData(size: 30),
         unselectedIconTheme: const IconThemeData(size: 24),
         currentIndex: _selectedIndex,
@@ -107,11 +117,10 @@ class _MainLayoutState extends State<MainLayout> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Favorites'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.notifications), label: 'Alerts/Events'),
+          BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'Alerts/Events'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.warning, color: Colors.red), label: 'Emergency'),
+          BottomNavigationBarItem(icon: Icon(Icons.warning, color: Colors.red), label: 'Emergency'),
+          BottomNavigationBarItem(icon: Icon(Icons.add_a_photo_outlined), label: 'CVision'),
         ],
       ),
     );
@@ -185,7 +194,9 @@ class HomeScreen extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const MapTestScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => const NavigationScreen(),
+                  ),
                 );
               },
               icon: const Icon(Icons.map_rounded),
@@ -193,8 +204,7 @@ class HomeScreen extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color.fromARGB(255, 161, 133, 40),
                 foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                 textStyle: const TextStyle(fontSize: 16),
               ),
             ),
@@ -205,82 +215,10 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-class MapTestScreen extends StatelessWidget {
-  const MapTestScreen({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Map Test Mode'),
-        backgroundColor: const Color.fromARGB(255, 161, 133, 40),
-      ),
-      body: const RepaintBoundary(child: SimpleMap()),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color.fromARGB(255, 161, 133, 40),
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Map test started! (Simulating route setup...)'),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        },
-        child: const Icon(Icons.play_arrow_rounded),
-      ),
-    );
-  }
-}
 
-class SimpleMap extends StatefulWidget {
-  const SimpleMap({super.key});
-
-  @override
-  State<SimpleMap> createState() => _SimpleMapState();
-}
-
-class _SimpleMapState extends State<SimpleMap> {
-  late MapController mapController;
-
-  @override
-  void initState() {
-    super.initState();
-    mapController = MapController();
-  }
-
-  @override
-  void dispose() {
-    mapController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: FlutterMap(
-        mapController: mapController,
-        options: const MapOptions(
-          initialCenter: LatLng(34.067, -118.170),
-          initialZoom: 16.0,
-          interactionOptions:
-              InteractionOptions(flags: InteractiveFlag.drag | InteractiveFlag.pinchZoom),
-        ),
-        children: [
-          TileLayer(
-            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            userAgentPackageName: 'com.example.eagle_nav_app',
-            maxZoom: 18.0,
-            minZoom: 12.0,
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class FavoritesScreen extends StatelessWidget {
-  const FavoritesScreen({super.key});
-
   @override
   Widget build(BuildContext context) {
     return const Center(
@@ -288,6 +226,13 @@ class FavoritesScreen extends StatelessWidget {
     );
   }
 }
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Text('Notifications Screen (Events/Alerts)', style: TextStyle(fontSize: 18)),
+    );
+  }
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -301,14 +246,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool highContrast = false;
   bool audioHaptics = true;
   bool rumbleHaptics = false;
-
   bool aroundPeople = true;
   String colorBlindMode = 'None';
   double colorBlindIntensity = 0.5;
   bool announceObstacles = true;
   bool announceLandmarks = true;
   bool announcePeople = false;
-
   bool avoidStairs = true;
   bool wheelchairAccessibleRoutes = true;
 
@@ -335,10 +278,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 10),
           DropdownButtonFormField<String>(
             value: colorBlindMode,
-            decoration: const InputDecoration(
-              labelText: 'Color Blind Mode',
-              border: OutlineInputBorder(),
-            ),
+            decoration: const InputDecoration(labelText: 'Color Blind Mode', border: OutlineInputBorder()),
             items: const [
               DropdownMenuItem(value: 'None', child: Text('None')),
               DropdownMenuItem(
@@ -379,9 +319,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           Slider(
             value: colorBlindIntensity,
-            onChanged: colorBlindMode == 'None'
-                ? null
-                : (value) => setState(() => colorBlindIntensity = value),
+            onChanged: colorBlindMode == 'None' ? null : (v) => setState(() => colorBlindIntensity = v),
             min: 0.0,
             max: 1.0,
             divisions: 10,
@@ -407,13 +345,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 10),
           SwitchListTile(
             title: const Text('Avoid Stairs'),
-            subtitle: const Text('Use ramps or elevators instead of stairs'),
             value: avoidStairs,
             onChanged: (value) => setState(() => avoidStairs = value),
           ),
           SwitchListTile(
             title: const Text('Wheelchair Accessible Routes'),
-            subtitle: const Text('Use verified accessible paths only'),
             value: wheelchairAccessibleRoutes,
             onChanged: (value) =>
                 setState(() => wheelchairAccessibleRoutes = value),
@@ -452,13 +388,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 10),
           SwitchListTile(
             title: const Text('Enable Audio Haptics'),
-            subtitle: const Text('Subtle vibration synced with sound cues'),
             value: audioHaptics,
             onChanged: (value) => setState(() => audioHaptics = value),
           ),
           SwitchListTile(
             title: const Text('Enable Rumble Haptics'),
-            subtitle: const Text('Stronger feedback for warnings or turns'),
             value: rumbleHaptics,
             onChanged: (value) => setState(() => rumbleHaptics = value),
           ),

@@ -125,7 +125,7 @@ class ArCoreYoloRenderer(
     // ── Cached measurements — updated async, never blocks GL ────────────
     private val measurementCache = HashMap<String, Measurement>()
     private var lastMeasureTimeNs: Long = 0L
-    private val measureIntervalNs: Long = 500_000_000L  // Recalculate every 500ms
+    private val measureIntervalNs: Long = 250_000_000L  // Recalculate every 250ms
 
     // ── Main pipeline (fully non-blocking) ────────────────────────────────
 
@@ -160,14 +160,21 @@ class ArCoreYoloRenderer(
         val nowMs = System.currentTimeMillis()
         val depthCtx = if (nowMs - depthTimestampMs < maxDepthAgeMs) activeDepthCtx.get() else null
 
-        // ── Throttled fire-and-forget measurements ────────────────────────
-        // Only submit new measurement work every 500ms — not every frame.
-        // This frees up massive CPU for YOLO detection.
+        // ── Fire-and-forget measurements ──────────────────────────────────
+        // New objects: measure immediately (no delay)
+        // Existing objects: recalculate every 500ms
         val nowNs = System.nanoTime()
-        if (depthCtx != null && (nowNs - lastMeasureTimeNs) > measureIntervalNs) {
-            lastMeasureTimeNs = nowNs
+        val shouldRecalcAll = (nowNs - lastMeasureTimeNs) > measureIntervalNs
+        if (shouldRecalcAll) lastMeasureTimeNs = nowNs
+
+        if (depthCtx != null) {
             for (d in detections) {
                 val key = "${d.classId}_${(d.left / 40).roundToInt()}_${(d.top / 40).roundToInt()}"
+                val isNew = synchronized(measurementCache) { !measurementCache.containsKey(key) }
+
+                // New object → measure now. Existing object → only on recalc interval.
+                if (!isNew && !shouldRecalcAll) continue
+
                 val cId = d.classId
                 val l = d.left; val t = d.top; val r = d.right; val b = d.bottom
                 try {
@@ -445,19 +452,14 @@ class ArCoreYoloRenderer(
         val rawDistM = iqrMedian(ds) ?: return null
         if (rawDistM < 0.05f || rawDistM > 10f) return null
 
-        // Apply distance calibration correction FOR DISPLAY ONLY.
-        val distM = rawDistM * DISTANCE_CORRECTION
+        // Apply distance calibration correction.
+        val distM = rawDistM * 0.666f
 
         // ── Width/Height with adaptive bbox inset ─────────────────────────
-        // Use rawDistM (uncorrected) for 3D projection — the correction is
-        // only for how far away we report the object, not for computing its
-        // physical size via angular spread × depth.
         val sizeDepth = rawDistM
-        // Compute the bbox area in image pixels to determine how loose YOLO's box is.
         val bboxImgArea = (bw * bh).toInt()
         val keepFactor = bboxKeepFactor(classId, bboxImgArea)
 
-        // Shrink the bbox inward symmetrically.
         val insetX = bw * (1f - keepFactor) / 2f
         val insetY = bh * (1f - keepFactor) / 2f
         val measLeft = leftImg + insetX
@@ -469,26 +471,50 @@ class ArCoreYoloRenderer(
 
         if (measW <= 0f || measH <= 0f) return null
 
-        // Multi-point edge walk on the INSET bbox, using CENTER DEPTH
-        // for all edge points. This prevents background depth from
-        // corrupting the size measurement.
+        // Measure width along BOTH top and bottom edges, average them.
+        // Measure height along BOTH left and right edges, average them.
+        // This cancels out per-edge noise.
         val es = grid.coerceIn(5, 11)
 
+        // Width: top edge
         val topPts = ArrayList<FloatArray>(es)
         for (i in 0 until es) {
             val t = i.toFloat() / (es - 1).coerceAtLeast(1)
             val (dx, dy) = i2d(measLeft + t * measW, measTop)
             topPts.add(d2c(dx, dy, sizeDepth))
         }
-        var wM = 0f; for (i in 1 until topPts.size) wM += dist(topPts[i - 1], topPts[i])
+        var wTop = 0f; for (i in 1 until topPts.size) wTop += dist(topPts[i - 1], topPts[i])
 
+        // Width: bottom edge
+        val botPts = ArrayList<FloatArray>(es)
+        for (i in 0 until es) {
+            val t = i.toFloat() / (es - 1).coerceAtLeast(1)
+            val (dx, dy) = i2d(measLeft + t * measW, measBottom)
+            botPts.add(d2c(dx, dy, sizeDepth))
+        }
+        var wBot = 0f; for (i in 1 until botPts.size) wBot += dist(botPts[i - 1], botPts[i])
+
+        val wM = (wTop + wBot) / 2f
+
+        // Height: left edge
         val leftPts = ArrayList<FloatArray>(es)
         for (i in 0 until es) {
             val t = i.toFloat() / (es - 1).coerceAtLeast(1)
             val (dx, dy) = i2d(measLeft, measTop + t * measH)
             leftPts.add(d2c(dx, dy, sizeDepth))
         }
-        var hM = 0f; for (i in 1 until leftPts.size) hM += dist(leftPts[i - 1], leftPts[i])
+        var hLeft = 0f; for (i in 1 until leftPts.size) hLeft += dist(leftPts[i - 1], leftPts[i])
+
+        // Height: right edge
+        val rightPts = ArrayList<FloatArray>(es)
+        for (i in 0 until es) {
+            val t = i.toFloat() / (es - 1).coerceAtLeast(1)
+            val (dx, dy) = i2d(measRight, measTop + t * measH)
+            rightPts.add(d2c(dx, dy, sizeDepth))
+        }
+        var hRight = 0f; for (i in 1 until rightPts.size) hRight += dist(rightPts[i - 1], rightPts[i])
+
+        val hM = (hLeft + hRight) / 2f
 
         val totalIn = distM * M2IN; val (ft, inc) = ftIn(totalIn)
 
@@ -577,6 +603,5 @@ class ArCoreYoloRenderer(
         private const val M2IN = 39.3701f
         private const val MAX_DEPTH_MM = 8000
         private const val CONF_THRESH = 40
-        private const val DISTANCE_CORRECTION = 0.666f  // Calibrated: raw depth overshoots ~1.5×
     }
 }

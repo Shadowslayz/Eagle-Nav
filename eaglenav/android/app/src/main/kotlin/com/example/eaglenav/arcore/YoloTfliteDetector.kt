@@ -24,6 +24,7 @@ import kotlin.math.roundToInt
 /**
  * Maximum-throughput YOLO TFLite detector for Snapdragon 8 Gen 2.
  *
+ *
  * - GPU delegate with FP16 forced (Adreno 740)
  * - NNAPI sustained-speed fallback (Hexagon DSP)
  * - All available CPU cores for XNNPACK fallback
@@ -252,9 +253,10 @@ class YoloTfliteDetector(
               val u = (uBuf.get(uvIdx).toInt() and 0xFF) - 128
               val v = (vBuf.get(uvIdx).toInt() and 0xFF) - 128
               val yf = yVal.toFloat()
-              var r = yf + 1.370705f * v
-              var g = yf - 0.337633f * u - 0.698001f * v
-              var b = yf + 1.732446f * u
+              // BT.709 (S23 camera output) — not BT.601
+              var r = yf + 1.5748f * v
+              var g = yf - 0.1873f * u - 0.4681f * v
+              var b = yf + 1.8556f * u
               if (r < 0f) r = 0f else if (r > 255f) r = 255f
               if (g < 0f) g = 0f else if (g > 255f) g = 255f
               if (b < 0f) b = 0f else if (b > 255f) b = 255f

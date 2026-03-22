@@ -12,61 +12,55 @@
 .swiftpm/
 migrate_working_dir/
 
-# IntelliJ related
+# IntelliJ / Android Studio
 *.iml
 *.ipr
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
+# VS Code
 #.vscode/
 
-# Flutter/Dart/Pub related
+# Flutter / Dart / Pub
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub/
+.pub-cache/
+build/
+coverage/
 **/doc/api/
 **/ios/Flutter/.last_build_id
-.dart_tool/
-.flutter-plugins-dependencies
-.pub-cache/
-.pub/
-/build/
-/coverage/
 
-# Symbolication related
+# Symbolication / obfuscation
 app.*.symbols
-
-# Obfuscation related
 app.*.map.json
 
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
-
-# Gradle build cache & wrapper downloads (HUGE — never commit)
-.gradle/
-.gradle-local/
+# Android generated outputs
+android/.gradle/
+android/local.properties
+android/app/debug/
+android/app/profile/
+android/app/release/
+android/app/build/
+android/build/
 **/android/.gradle/
 **/android/app/build/
 **/android/build/
-eaglenav/.gradle-local/
-**/build/
-
-# Native build artifacts
 **/.cxx/
 **/android/.cxx/
 
-# TFLite models (large binary — use Git LFS or manage separately)
-# Uncomment if you don't want models in the repo:
-# *.tflite
+# Gradle local caches
+.gradle/
+.gradle-local/
 
-# iOS build artifacts
-**/ios/Pods/
-**/ios/.symlinks/
-**/ios/Flutter/Flutter.framework
-**/ios/Flutter/Flutter.podspec
-**/ios/build/
+# iOS generated files
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/build/
 
 # macOS junk
 **/__MACOSX/

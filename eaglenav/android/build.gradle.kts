@@ -1,5 +1,6 @@
-import org.gradle.api.tasks.Delete
 import org.gradle.api.file.Directory
+import org.gradle.api.tasks.Delete
+import org.gradle.api.tasks.compile.JavaCompile
 
 allprojects {
     repositories {
@@ -21,6 +22,10 @@ subprojects {
 
 subprojects {
     project.evaluationDependsOn(":app")
+
+    tasks.withType<JavaCompile>().configureEach {
+        options.compilerArgs.add("-Xlint:-options")
+    }
 }
 
 tasks.register<Delete>("clean") {

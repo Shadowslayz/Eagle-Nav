@@ -369,7 +369,7 @@ class ArCoreYoloRenderer(
                 val heightInches = measurement.heightInches.roundToInt()
                 "${track.className} $confStr ${measurement.distanceFeet}ft ${measurement.distanceInches}in ${widthInches}x${heightInches}in"
             } else {
-                "${track.className} $confStr"
+                "${track.className} $confStr processing"
             }
 
             overlayItems.add(
@@ -391,6 +391,8 @@ class ArCoreYoloRenderer(
                 itemPayload["height_in"] = measurement.heightInches.toDouble()
                 itemPayload["distance_text"] = "${measurement.distanceFeet}ft ${measurement.distanceInches}in"
                 itemPayload["size_text"] = "${measurement.widthInches.roundToInt()}in x ${measurement.heightInches.roundToInt()}in"
+            } else {
+                itemPayload["processing"] = "processing"
             }
             payload.add(itemPayload)
         }
@@ -812,8 +814,7 @@ class ArCoreYoloRenderer(
         val rawDistanceMeters = iqrMedian(distanceSamples) ?: return null
         if (rawDistanceMeters < 0.05f || rawDistanceMeters > 10f) return null
 
-        // Keep your existing calibration factor.
-        val distanceMeters = rawDistanceMeters * 0.666f
+        val distanceMeters = applyDistanceSuppression(rawDistanceMeters)
 
         val keepFactor = bboxKeepFactor(classId, (bboxWidth * bboxHeight).toInt())
         val insetX = bboxWidth * (1f - keepFactor) / 2f
@@ -898,6 +899,22 @@ class ArCoreYoloRenderer(
             inches -= 12
         }
         return Pair(feet, inches)
+    }
+
+
+    private fun applyDistanceSuppression(rawDistanceMeters: Float): Float {
+        val rawDistanceFeet = rawDistanceMeters * M2FT
+        val multiplier = when {
+            rawDistanceFeet < 3f -> DISTANCE_SCALE_0_TO_3_FT
+            rawDistanceFeet < 6f -> DISTANCE_SCALE_3_TO_6_FT
+            else -> DISTANCE_SCALE_6_PLUS_FT
+        }
+        var result = rawDistanceMeters * multiplier
+        val resultFeet = result * M2FT
+        if (resultFeet > 10f) {
+            result *= DISTANCE_SCALE_OVER_10_FT
+        }
+        return result
     }
 
     private fun colorForClassId(classId: Int): Int {
@@ -1029,7 +1046,13 @@ class ArCoreYoloRenderer(
         private const val MAX_MEASUREMENT_CACHE_AGE_MS = 1_000L
 
         private const val M2IN = 39.3701f
+        private const val M2FT = 3.28084f
         private const val MAX_DEPTH_MM = 8_000
         private const val CONF_THRESH = 40
+
+        private const val DISTANCE_SCALE_0_TO_3_FT = 0.819f
+        private const val DISTANCE_SCALE_3_TO_6_FT = 0.765f
+        private const val DISTANCE_SCALE_6_PLUS_FT = 0.684f
+        private const val DISTANCE_SCALE_OVER_10_FT = 0.60f
     }
 }

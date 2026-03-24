@@ -1,6 +1,4 @@
-# Disclaimer and Legal Notice
 
-This file is a practical template for a public GitHub repository. It is **not legal advice** and does **not** replace review by a licensed attorney.
 
 ## 1. Prototype / educational use only
 
@@ -30,7 +28,7 @@ To the maximum extent permitted by applicable law, the software, model files, as
 
 ## 5. Limitation of liability
 
-To the maximum extent permitted by applicable law, the authors, contributors, maintainers, and distributors of this repository shall not be liable for any direct, indirect, incidental, special, consequential, exemplary, or punitive damages, or for any loss of data, loss of profits, business interruption, personal injury, property damage, accessibility harm, navigation error, or other losses arising from or related to the use of, misuse of, or inability to use this repository or any output it produces.
+To the maximum extent permitted by applicable law, the authors, contributors, maintainers, and distributors of this repository shall not be liable for any direct, indirect, incidental, special, consequential, exemplary, or punitive damages, or for any loss of data, loss of profits, business interruption, personal injury, property damage, accessibility harm, navigation error, or other losses arising from or related to the use of, misuse of, or inability to use this repository or any output it produces. By downloading and testing, you are automatically agreeing to limitation of liability. Failure to read the Disclaimer.md shall intrepreted as negligence on your part.
 
 ## 6. User responsibility
 
@@ -86,6 +84,3 @@ Do not deploy this project in production, accessibility-critical, campus-safety-
 - security review
 - clear end-user warnings and operational controls
 
----
-
-If you want this notice to be stronger or more permissive, have an attorney review it for your jurisdiction, distribution model, and intended use.

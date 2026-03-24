@@ -11,8 +11,6 @@ import android.view.View
 import android.widget.FrameLayout
 import androidx.core.content.ContextCompat
 import com.google.ar.core.ArCoreApk
-import com.google.ar.core.CameraConfig
-import com.google.ar.core.CameraConfigFilter
 import com.google.ar.core.Config
 import com.google.ar.core.Session
 import io.flutter.plugin.common.BinaryMessenger
@@ -49,7 +47,8 @@ class ArCoreYoloPlatformView(
                     overlayView.setItems(items)
                     try {
                         channel.invokeMethod("onDetections", payload)
-                    } catch (_: Throwable) {}
+                    } catch (_: Throwable) {
+                    }
                 }
             },
         )
@@ -57,7 +56,10 @@ class ArCoreYoloPlatformView(
         glSurfaceView.setRenderer(renderer)
         glSurfaceView.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
 
-        try { glSurfaceView.onResume() } catch (_: Throwable) {}
+        try {
+            glSurfaceView.onResume()
+        } catch (_: Throwable) {
+        }
 
         root.addView(
             glSurfaceView,
@@ -87,13 +89,24 @@ class ArCoreYoloPlatformView(
     override fun getView(): View = root
 
     override fun dispose() {
-        try { channel.setMethodCallHandler(null) } catch (_: Throwable) {}
-        try { glSurfaceView.onPause() } catch (_: Throwable) {}
+        try {
+            channel.setMethodCallHandler(null)
+        } catch (_: Throwable) {
+        }
+        try {
+            glSurfaceView.onPause()
+        } catch (_: Throwable) {
+        }
 
         glSurfaceView.queueEvent {
             renderer.setSession(null)
             renderer.dispose()
-            try { session?.close() } catch (_: Throwable) {} finally { session = null }
+            try {
+                session?.close()
+            } catch (_: Throwable) {
+            } finally {
+                session = null
+            }
         }
     }
 
@@ -102,20 +115,23 @@ class ArCoreYoloPlatformView(
             "isSupported" -> {
                 result.success(isArCoreSupported(context))
             }
-
             "resume" -> {
-                try { glSurfaceView.onResume() } catch (_: Throwable) {}
+                try {
+                    glSurfaceView.onResume()
+                } catch (_: Throwable) {
+                }
                 val s = ensureSessionIfPossible()
                 Log.i(TAG, "resume called, session=${if (s != null) "active" else "null"}")
                 result.success(s != null)
             }
-
             "pause" -> {
-                try { glSurfaceView.onPause() } catch (_: Throwable) {}
+                try {
+                    glSurfaceView.onPause()
+                } catch (_: Throwable) {
+                }
                 pauseSession()
                 result.success(true)
             }
-
             else -> result.notImplemented()
         }
     }
@@ -126,7 +142,10 @@ class ArCoreYoloPlatformView(
                 session!!.resume()
             } catch (t: Throwable) {
                 Log.w(TAG, "Session resume failed, recreating", t)
-                try { session?.close() } catch (_: Throwable) {}
+                try {
+                    session?.close()
+                } catch (_: Throwable) {
+                }
                 session = null
             }
             if (session != null) return session
@@ -165,11 +184,6 @@ class ArCoreYoloPlatformView(
         return try {
             val newSession = Session(activity)
 
-            // ── Select highest-resolution camera config ───────────────────
-            // On S23 this typically gives 1920×1080 instead of 640×480.
-            // More pixels = more depth samples per object = better accuracy.
-            selectHighResCameraConfig(newSession)
-
             val config = Config(newSession).apply {
                 updateMode = Config.UpdateMode.LATEST_CAMERA_IMAGE
 
@@ -181,6 +195,8 @@ class ArCoreYoloPlatformView(
                 }
             }
 
+            // Intentionally keep the default camera config here.
+            // Forcing the max CPU resolution made the ARCore path heavier and less stable.
             newSession.configure(config)
             newSession.resume()
             session = newSession
@@ -195,30 +211,12 @@ class ArCoreYoloPlatformView(
         }
     }
 
-    /**
-     * Picks the camera config with the highest CPU image resolution.
-     */
-    private fun selectHighResCameraConfig(session: Session) {
-        try {
-            val filter = CameraConfigFilter(session)
-            val configs = session.getSupportedCameraConfigs(filter)
-            if (configs.isEmpty()) return
-
-            val best = configs.maxByOrNull {
-                it.imageSize.width.toLong() * it.imageSize.height.toLong()
-            } ?: return
-
-            session.cameraConfig = best
-            Log.i(TAG, "Selected camera config: CPU=${best.imageSize.width}x${best.imageSize.height}, " +
-                "GPU=${best.textureSize.width}x${best.textureSize.height}")
-        } catch (t: Throwable) {
-            Log.w(TAG, "Failed to select high-res camera config, using default", t)
-        }
-    }
-
     private fun pauseSession() {
         glSurfaceView.queueEvent {
-            try { session?.pause() } catch (_: Throwable) {}
+            try {
+                session?.pause()
+            } catch (_: Throwable) {
+            }
         }
     }
 

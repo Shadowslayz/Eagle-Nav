@@ -909,12 +909,7 @@ class ArCoreYoloRenderer(
             rawDistanceFeet < 6f -> DISTANCE_SCALE_3_TO_6_FT
             else -> DISTANCE_SCALE_6_PLUS_FT
         }
-        var result = rawDistanceMeters * multiplier
-        val resultFeet = result * M2FT
-        if (resultFeet > 10f) {
-            result *= DISTANCE_SCALE_OVER_10_FT
-        }
-        return result
+        return rawDistanceMeters * multiplier * DISTANCE_SCALE_FINAL
     }
 
     private fun colorForClassId(classId: Int): Int {
@@ -1053,6 +1048,6 @@ class ArCoreYoloRenderer(
         private const val DISTANCE_SCALE_0_TO_3_FT = 0.819f
         private const val DISTANCE_SCALE_3_TO_6_FT = 0.765f
         private const val DISTANCE_SCALE_6_PLUS_FT = 0.684f
-        private const val DISTANCE_SCALE_OVER_10_FT = 0.60f
+        private const val DISTANCE_SCALE_FINAL = 0.76f
     }
 }

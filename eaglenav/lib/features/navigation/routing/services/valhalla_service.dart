@@ -22,8 +22,23 @@ Future<List<ll.LatLng>> getValhallaRoutePolyline6({
       {"lat": origin.latitude, "lon": origin.longitude},
       {"lat": destination.latitude, "lon": destination.longitude},
     ],
-    "costing": costing,
-    "directions_type": "none",
+    "costing": costing, // assuming "pedestrian"
+    "costing_options": {
+      "pedestrian": {
+        // Heavily penalize alleys, service roads, and loading docks
+        "alley_factor": 10.0,
+        // Heavily penalize walking through parking lots and driveways
+        "driveway_factor": 10.0,
+        // Avoid dirt/gravel tracks which lack clear tactile boundaries
+        "use_tracks": 0.0,
+        // Force paved surfaces only (better for cane usage)
+        "exclude_unpaved": true,
+        // Prefer sidewalks and dedicated walkways
+        "walkway_factor": 0.5,
+        "sidewalk_factor": 0.5,
+      },
+    },
+    "directions_type": {"units": "meters", "language": "en-US"},
     "shape_format": "polyline6",
   };
 
@@ -96,18 +111,24 @@ Future<List<ll.LatLng>> getValhallaRoutePolyline6({
 class NavigationStep {
   final String instruction;
   final ll.LatLng location;
+  final ll.LatLng endLocation;
+  final int maneuverType;
   final String type;
   final int? turnDegree;
   final double distanceMeters;
   final String? streetName;
+  final String? nextStreetName;
 
   NavigationStep({
     required this.instruction,
     required this.location,
+    required this.endLocation,
+    required this.maneuverType,
     required this.type,
     this.turnDegree,
     required this.distanceMeters,
     this.streetName,
+    this.nextStreetName,
   });
 
   String getHapticKind() {
@@ -129,6 +150,33 @@ class NavigationStep {
 
   String getTTSInstruction() {
     return instruction;
+  }
+
+  String? getTurnDirection() {
+    switch (maneuverType) {
+      case 9:
+        return 'bear slightly right';
+      case 10:
+        return 'turn right';
+      case 11:
+        return 'turn sharp right';
+      case 12:
+        return 'make a U-turn right';
+      case 13:
+        return 'make a U-turn left';
+      case 14:
+        return 'turn sharp left';
+      case 15:
+        return 'turn left';
+      case 16:
+        return 'bear slightly left';
+      case 24:
+        return 'enter the roundabout';
+      case 4:
+        return 'arrive at your destination';
+      default:
+        return null; // continue/straight — no turn to announce
+    }
   }
 }
 
@@ -201,22 +249,43 @@ Future<ValhallaRoute?> getValhallaRoute({
     final maneuvers = firstLeg['maneuvers'] as List? ?? [];
     final steps = <NavigationStep>[];
 
-    for (var maneuver in maneuvers) {
-      final m = maneuver as Map<String, dynamic>;
+    for (var entry in maneuvers.asMap().entries) {
+      final i = entry.key;
+      final m = entry.value as Map<String, dynamic>;
 
-      final shapeIndex = m['begin_shape_index'] as int? ?? 0;
+      final beginIndex = m['begin_shape_index'] as int? ?? 0;
+      final endIndex = m['end_shape_index'] as int? ?? 0;
+
+      /* final shapeIndex = m['begin_shape_index'] as int? ?? 0;
       final location = shapeIndex < polyline.length
           ? polyline[shapeIndex]
+          : polyline.first; */
+      final location = beginIndex < polyline.length
+          ? polyline[beginIndex]
           : polyline.first;
+
+      final endLocation = endIndex < polyline.length
+          ? polyline[endIndex]
+          : polyline.last;
+
+      // peek at next maneuver for nextStreetName
+      final nextM = i + 1 < maneuvers.length
+          ? maneuvers[i + 1] as Map<String, dynamic>
+          : null;
+
+      final rawType = m['type'] as int? ?? 0;
 
       steps.add(
         NavigationStep(
           instruction: m['instruction'] as String? ?? 'Continue',
           location: location,
+          endLocation: endLocation,
+          maneuverType: rawType,
           type: _getManeuverType(m['type'] as int? ?? 0),
           turnDegree: m['turn_degree'] as int?,
-          distanceMeters: (m['length'] as num?)?.toDouble() ?? 0.0,
+          distanceMeters: ((m['length'] as num?)?.toDouble() ?? 0.0) * 1000,
           streetName: _getStreetName(m),
+          nextStreetName: nextM != null ? _getStreetName(nextM) : null,
         ),
       );
     }
@@ -228,7 +297,8 @@ Future<ValhallaRoute?> getValhallaRoute({
     return ValhallaRoute(
       polyline: polyline,
       steps: steps,
-      totalDistanceMeters: (summary['length'] as num?)?.toDouble() ?? 0.0,
+      totalDistanceMeters:
+          ((summary['length'] as num?)?.toDouble() ?? 0.0) * 1000,
       totalTimeSeconds: (summary['time'] as num?)?.toDouble() ?? 0.0,
     );
   } catch (e, stackTrace) {

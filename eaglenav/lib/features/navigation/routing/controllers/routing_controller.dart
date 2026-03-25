@@ -60,13 +60,14 @@ class RoutingController extends ChangeNotifier {
   /// Timestamp of when the user first went off-route in the current deviation
   /// window. Reset when user returns to route or a new route is applied.
   DateTime? _deviationStartTime;
+  double? _lastDeviation;
 
   int _deviationTickCount = 0;
   static const int _deviationTickThreshold = 3; // 3 consecutive off-route ticks
 
   RoutingController({
     required String valhallaBaseUrl,
-    this.deviationThresholdMeters = 20.0,
+    this.deviationThresholdMeters = 30.0,
     this.deviationDebounce = const Duration(seconds: 3),
     this.costing = 'pedestrian',
   }) : _valhallaBaseUrl = valhallaBaseUrl;
@@ -125,6 +126,7 @@ class RoutingController extends ChangeNotifier {
     if (_status != RoutingStatus.active) return null;
 
     final deviation = _distanceToRoute(position);
+    _lastDeviation = deviation;
     debugPrint('Deviation: ${deviation.toStringAsFixed(1)}m');
     final isDeviated = deviation > deviationThresholdMeters;
 
@@ -217,6 +219,8 @@ class RoutingController extends ChangeNotifier {
     }
     return minDist;
   }
+
+  double? get lastDeviation => _lastDeviation;
 
   /// Projects [p] onto segment [a]→[b] and returns the haversine distance
   /// from [p] to that closest point. t is clamped to [0,1] so the projection

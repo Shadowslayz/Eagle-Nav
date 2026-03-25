@@ -1,25 +1,25 @@
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart' as ll;
-import '../services/speech.dart';
 import '../services/haptics.dart';
 import '../routing/services/valhalla_service.dart';
 
 /// ─── GuidanceController ──────────────────────────────────────────────────────
 ///
 /// Owns the turn-by-turn guidance layer on top of an active route.
-/// Receives location ticks and drives step progression, TTS announcements,
-/// and haptic feedback. Exposes reactive state for the UI (turn panel,
-/// progress bar, arrival screen).
+/// Receives location ticks and drives step progression and haptic feedback.
+/// Exposes reactive state for the UI (turn panel, progress bar, arrival).
 ///
 /// Responsibilities:
 ///   - Track which step the user is currently on
-///   - Announce upcoming steps via Speech and Haptics at [announceTriggerMeters]
+///   - Fire [onStepAdvanced] when the user passes a step — the screen owns
+///     all TTS announcements via NavigationVoiceController
 ///   - Detect arrival and notify listeners
-///   - Expose current step, next step, progress, and distance to next turn
+///   - Expose current step, next step, and progress
 ///
 /// Does NOT:
 ///   - Fetch or re-fetch routes (that is RoutingController's job)
 ///   - Know about GPS streams or location permissions
+///   - Speak any TTS directly — that is NavigationVoiceController's job
 ///   - Hold a reference to RoutingController directly
 ///
 /// How it fits in:
@@ -30,12 +30,7 @@ import '../routing/services/valhalla_service.dart';
 /// ─────────────────────────────────────────────────────────────────────────────
 
 class GuidanceController extends ChangeNotifier {
-  final Speech _speech;
   final Haptics _haptics;
-
-  // ── Config ────────────────────────────────────────────────
-  /// Distance in meters at which an upcoming step is announced.
-  final double announceTriggerMeters;
 
   /// Distance in meters at which the current step is considered passed
   /// and the controller advances to the next one.
@@ -46,19 +41,16 @@ class GuidanceController extends ChangeNotifier {
   int _currentStepIndex = 0;
   bool _hasArrived = false;
 
-  /// Tracks which step indices have already been announced so we
-  /// never fire the same announcement twice for the same step.
-  final Set<int> _announcedSteps = {};
+  /// Called whenever the step index advances. The screen wires this to
+  /// NavigationVoiceController.announceStep() so TTS fires on each new step.
+  VoidCallback? onStepAdvanced;
+  VoidCallback? onArrival;
 
-  GuidanceController({
-    Speech? speech,
-    Haptics? haptics,
-    this.announceTriggerMeters = 30.0,
-    this.stepCompleteMeters = 10.0,
-  }) : _speech = speech ?? Speech(),
-       _haptics = haptics ?? Haptics();
+  GuidanceController({Haptics? haptics, this.stepCompleteMeters = 10.0})
+    : _haptics = haptics ?? Haptics();
 
   // ── Public state ──────────────────────────────────────────
+
   bool get isNavigating => _currentRoute != null && !_hasArrived;
   bool get hasArrived => _hasArrived;
 
@@ -69,7 +61,8 @@ class GuidanceController extends ChangeNotifier {
     return _currentRoute!.steps[_currentStepIndex];
   }
 
-  /// The step after the current one — useful for "then turn..." in the UI.
+  /// The step after the current one — used for upcoming turn info in the UI
+  /// and distance countdown alerts.
   NavigationStep? get nextStep {
     if (_currentRoute == null) return null;
     final nextIndex = _currentStepIndex + 1;
@@ -92,14 +85,7 @@ class GuidanceController extends ChangeNotifier {
     _currentRoute = route;
     _currentStepIndex = 0;
     _hasArrived = false;
-    _announcedSteps.clear();
     notifyListeners();
-
-    // Announce the first instruction immediately so the user knows
-    // navigation has started without waiting to approach the first turn.
-    if (route.steps.isNotEmpty) {
-      _announceStep(route.steps[0]);
-    }
   }
 
   /// Stop guidance and clear all state. Called when the user cancels
@@ -108,7 +94,6 @@ class GuidanceController extends ChangeNotifier {
     _currentRoute = null;
     _currentStepIndex = 0;
     _hasArrived = false;
-    _announcedSteps.clear();
     notifyListeners();
   }
 
@@ -124,38 +109,52 @@ class GuidanceController extends ChangeNotifier {
     final steps = _currentRoute!.steps;
     if (steps.isEmpty) return;
 
-    // Walk forward from the current step index checking upcoming steps.
-    // We only look ahead a bounded window to avoid over-advancing on a
-    // long straight segment that passes close to a future turn point.
+    // ---  GLOBAL ARRIVAL CHECK ---
+    // If the user is within a safe threshold of the total destination,
+    // trigger arrival immediately.
+    final finalStep = steps.last;
+    final distanceToDestination = _calculateDistance(
+      position,
+      finalStep.location,
+    );
+
+    if (distanceToDestination <= 15.0) {
+      _handleArrival(finalStep);
+      return;
+    }
+
+    // Look ahead a bounded window to avoid over-advancing on a long straight
+    // segment that passes close to a future turn point.
     final lookAheadLimit = (_currentStepIndex + 3).clamp(0, steps.length);
 
     for (int i = _currentStepIndex; i < lookAheadLimit; i++) {
       final step = steps[i];
-      final distance = _calculateDistance(position, step.location);
+      final distance = _calculateDistance(position, step.endLocation);
       final isLastStep = i == steps.length - 1;
+      final distanceToStepEnd = _calculateDistance(position, step.endLocation);
+
+      // If we are on the last or second-to-last step and close enough...
+      if (i >= steps.length - 2 && distanceToStepEnd <= stepCompleteMeters) {
+        _handleArrival(steps.last);
+        return;
+      }
+
+      if (distanceToStepEnd < stepCompleteMeters && i == _currentStepIndex) {
+        _advanceStep(i + 1);
+        break;
+      }
 
       // ── Arrival detection ──────────────────────────────
-      // Treat the last step reaching stepCompleteMeters as arrival.
       if (isLastStep && distance <= stepCompleteMeters) {
         _handleArrival(step);
         return;
       }
 
-      // ── Step announcement ──────────────────────────────
-      // Announce when close enough and not yet announced.
-      if (distance <= announceTriggerMeters && !_announcedSteps.contains(i)) {
-        _announceStep(step);
-        _announcedSteps.add(i);
-        // Don't break — allow the loop to also check if we've passed this step.
-      }
-
       // ── Step completion ────────────────────────────────
-      // Advance index once the user has clearly passed the step location.
-      // Only advance the *current* index (i == _currentStepIndex) to avoid
-      // skipping multiple steps in one tick.
+      // Advance once the user has clearly passed the step location.
+      // Only advance the current index to avoid skipping multiple steps.
       if (distance < stepCompleteMeters && i == _currentStepIndex) {
-        _currentStepIndex = i + 1;
-        notifyListeners();
+        _advanceStep(i + 1);
         break;
       }
     }
@@ -163,20 +162,22 @@ class GuidanceController extends ChangeNotifier {
 
   // ── Internals ─────────────────────────────────────────────
 
-  Future<void> _handleArrival(NavigationStep arrivalStep) async {
-    _hasArrived = true;
+  void _advanceStep(int newIndex) {
+    _currentStepIndex = newIndex;
     notifyListeners();
-    await _announceStep(arrivalStep);
+    onStepAdvanced?.call();
   }
 
-  /// Fire haptics first (instant) then TTS (slight delay) so the physical
-  /// feedback always lands before the spoken instruction.
-  Future<void> _announceStep(NavigationStep step) async {
-    debugPrint(' ${step.instruction}');
-
-    final hapticEvent = Haptics.fromKind(step.getHapticKind());
+  Future<void> _handleArrival(NavigationStep arrivalStep) async {
+    if (_hasArrived) return; // prevent repeat calls on successive GPS ticks
+    _hasArrived = true;
+    notifyListeners();
+    debugPrint(' ${arrivalStep.instruction}');
+    final hapticEvent = Haptics.fromKind(arrivalStep.getHapticKind());
     await Haptics.fire(hapticEvent);
-    await _speech.announceDirection(step.getTTSInstruction());
+    onStepAdvanced
+        ?.call(); // ← triggers the screen → voice controller → cases 4/5/6
+    onArrival?.call(); // tells the screen to stop navigation
   }
 
   double _calculateDistance(ll.LatLng a, ll.LatLng b) {

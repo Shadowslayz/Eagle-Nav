@@ -26,7 +26,7 @@ class OrientationCoach {
   static const int _bufferSize = 15;
   final List<double> _angleBuffer = [];
 
-  static const Duration _speakInterval = Duration(seconds: 5);
+  static const Duration _speakInterval = Duration(seconds: 15);
   static const double _acceptableError = 10.0;
   bool _isCoachSpeaking = false;
 
@@ -46,7 +46,7 @@ class OrientationCoach {
     _active = true;
     _targetBearing = targetBearing;
     _angleBuffer.clear();
-    _lastSpoken = DateTime.fromMillisecondsSinceEpoch(0);
+    //_lastSpoken = DateTime.fromMillisecondsSinceEpoch(0);
 
     // Store reference so we can remove it later
     _activeListener = () async {
@@ -72,7 +72,7 @@ class OrientationCoach {
         await _ttsManager.stop();
         await _ttsManager.speak(
           streetName != null && streetName.isNotEmpty
-              ? 'Locked in. Align your body with the phone and walk forward on $streetName.'
+              ? 'Locked in.'
               : 'Locked in. Align your body with the phone and walk forward.',
           TtsPriority.high,
         );
@@ -90,19 +90,29 @@ class OrientationCoach {
       _isCoachSpeaking = true;
 
       final dir = relAngle > 0 ? 'right' : 'left';
+
       String message;
-      if (avgAngle > 120) {
+
+      if (avgAngle > 150) {
+        // 150 to 180 degrees is genuinely behind the user
         message = 'Turn all the way around to the $dir.';
-      } else if (avgAngle > 60) {
+      } else if (avgAngle > 75) {
+        // 75 to 150 captures a standard 90-degree right angle turn
         message = 'Turn $dir, about a quarter turn.';
       } else if (avgAngle > 30) {
+        // 30 to 75 is a standard diagonal/shallow turn
         message = 'Turn $dir.';
       } else {
+        // 10 to 30 degrees off target
         message = 'Almost there. Slightly to the $dir.';
       }
 
       await _ttsManager.stop();
       await _ttsManager.speak(message, TtsPriority.normal);
+
+      // sets the cooldown timer after the speech ends.
+      // This guarantees exactly x seconds of pure silence before the next prompt.
+      _lastSpoken = DateTime.now();
       _isCoachSpeaking = false;
     };
 

@@ -136,8 +136,16 @@ class _NavigationScreenState extends State<NavigationScreen> {
         };
 
         // Wire arrival callback
-        _guidanceController.onArrival = () {
-          _stopNavigation();
+        _guidanceController.onArrival = () async {
+          // Let the screen linger on the "Arrived" step for 4 seconds
+          // so the user can read the banner and the TTS can finish speaking.
+          await Future.delayed(const Duration(seconds: 4));
+
+          // Make sure the user didn't close the app during those 4 seconds
+          if (!mounted) return;
+
+          // Gracefully shut down the route and reset the UI
+          _stopNavigation(isArrival: true);
           _uiController.setState(NavigationUIState.idle);
         };
 
@@ -259,10 +267,15 @@ class _NavigationScreenState extends State<NavigationScreen> {
     await _routingController.fetchRoute(origin, _destination!);
   }
 
-  void _stopNavigation() {
+  void _stopNavigation({bool isArrival = false}) {
     _guidanceController.stopNavigation();
     _routingController.clearRoute();
-    _navVoice.stop();
+
+    // Only kill the audio if the user manually cancelled.
+    // If they successfully arrived, let the TTS finish speaking!
+    if (!isArrival) {
+      _navVoice.stop();
+    }
   }
 
   // ── Helpers ───────────────────────────────────────────────
@@ -336,7 +349,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
           _locationController,
           _routingController,
           _guidanceController,
-          _navVoice, // ← allows banner to update when displayText changes
+          _navVoice,
         ]),
         builder: (context, _) {
           final position = _locationController.currentLocation;
@@ -359,7 +372,10 @@ class _NavigationScreenState extends State<NavigationScreen> {
                         position ?? const ll.LatLng(34.067, -118.170),
                     initialZoom: 16.0,
                     interactionOptions: const InteractionOptions(
-                      flags: InteractiveFlag.drag | InteractiveFlag.pinchZoom,
+                      flags:
+                          InteractiveFlag.drag |
+                          InteractiveFlag.pinchZoom |
+                          InteractiveFlag.rotate,
                     ),
                   ),
                   children: [
@@ -371,10 +387,13 @@ class _NavigationScreenState extends State<NavigationScreen> {
                       minZoom: 12.0,
                     ),
                     PolylineLayer(
+                      // FIX: Prevent lines from disappearing on zoom/pan
+                      simplificationTolerance: 0.0,
                       polylines: [
                         if (polyline.isNotEmpty)
                           Polyline(
-                            points: polyline,
+                            // FIX: Spread operator forces the map to redraw updates
+                            points: [...polyline],
                             strokeWidth: 40.0,
                             color: Colors.blue.withOpacity(0.12),
                             borderStrokeWidth: 1.5,
@@ -384,7 +403,8 @@ class _NavigationScreenState extends State<NavigationScreen> {
                           ),
                         if (polyline.isNotEmpty)
                           Polyline(
-                            points: polyline,
+                            // FIX: Spread operator forces the map to redraw updates
+                            points: [...polyline],
                             strokeWidth: 4,
                             color: isNavigating
                                 ? Colors.blue
@@ -471,6 +491,32 @@ class _NavigationScreenState extends State<NavigationScreen> {
                     ),
                   ),
 
+                // ── Recenter button (Using proven layout logic) ────────────
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  right: 16, // Pinned to the right
+                  // Uses the exact same working math as your zoom buttons!
+                  bottom: (isNavigating || isDestinationSelected) ? 240 : 120,
+                  child: FloatingActionButton(
+                    heroTag: 'recenter_btn_safe',
+                    backgroundColor: Colors.white,
+                    onPressed: () {
+                      final userLocation = _locationController.currentLocation;
+                      if (userLocation != null) {
+                        _mapController.move(
+                          userLocation,
+                          _mapController.camera.zoom,
+                        );
+                        _mapController.rotate(
+                          _navVoice.compassHeadingNotifier.value,
+                        );
+                      }
+                    },
+                    child: const Icon(Icons.my_location, color: Colors.blue),
+                  ),
+                ),
+
                 // ── Zoom buttons ──────────────────────────────
                 AnimatedPositioned(
                   duration: const Duration(milliseconds: 300),
@@ -508,7 +554,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
                     left: 16,
                     right: 16,
                     child: _TurnByTurnPanel(
-                      // show enhanced display text, fall back to raw instruction
                       instruction: _navVoice.lastDisplayText.isNotEmpty
                           ? _navVoice.lastDisplayText
                           : currentStep.instruction,

@@ -85,9 +85,8 @@ class NavigationInstructionEnhancer {
         return EnhancedInstruction(
           spokenText: facing == 'good'
               ? 'You are facing the right direction. '
-                    'Walk forward on $name for $distanceSpoken, that is $steps steps.'
-              : 'Face $cardinal before starting. $turnPhrase to align. '
-                    'Then walk forward on $name for $distanceSpoken, that is $steps steps.',
+                    'Align your body with the phone and walk forward on $name for $distanceSpoken, about $steps steps.'
+              : 'Starting orientation: $turnPhrase to align. ',
           displayText: name != 'the path'
               ? 'Walk forward on $name'
               : 'Walk forward',

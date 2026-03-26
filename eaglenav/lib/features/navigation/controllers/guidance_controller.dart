@@ -171,12 +171,24 @@ class GuidanceController extends ChangeNotifier {
   Future<void> _handleArrival(NavigationStep arrivalStep) async {
     if (_hasArrived) return; // prevent repeat calls on successive GPS ticks
     _hasArrived = true;
+
+    // FIX: Force the controller to point exactly at the final step
+    // so when onStepAdvanced fires, the screen reads the "arrival" maneuver
+    // (Type 4, 5, or 6) and passes it to the enhancer.
+    _currentStepIndex = _currentRoute!.steps.indexOf(arrivalStep);
+
     notifyListeners();
     debugPrint(' ${arrivalStep.instruction}');
     final hapticEvent = Haptics.fromKind(arrivalStep.getHapticKind());
     await Haptics.fire(hapticEvent);
+
     onStepAdvanced
         ?.call(); // ← triggers the screen → voice controller → cases 4/5/6
+
+    // Adding a tiny delay allows the TTS to queue the arrival message
+    // before the screen completely destroys the navigation state.
+    await Future.delayed(const Duration(milliseconds: 1000));
+
     onArrival?.call(); // tells the screen to stop navigation
   }
 

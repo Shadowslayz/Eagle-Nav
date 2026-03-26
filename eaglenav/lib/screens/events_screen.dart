@@ -4,7 +4,165 @@ import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as html;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../main.dart';
+import 'dart:io';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
+
+final FlutterLocalNotificationsPlugin fln = FlutterLocalNotificationsPlugin();
+bool _notificationsInitialized = false;
+
+Future<void> initEventNotifications() async {
+  if (_notificationsInitialized) return;
+
+  try {
+    tz.initializeTimeZones();
+    tz.setLocalLocation(tz.getLocation('America/Los_Angeles'));
+  } catch (e) {
+    debugPrint('TZ init error: $e');
+  }
+
+  const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const iosInit = DarwinInitializationSettings();
+  const initSettings = InitializationSettings(
+    android: androidInit,
+    iOS: iosInit,
+  );
+
+  await fln.initialize(initSettings);
+
+  final androidImpl =
+      fln.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+  await androidImpl?.requestNotificationsPermission();
+
+  if (Platform.isAndroid) {
+    await androidImpl?.requestExactAlarmsPermission();
+  }
+
+  final iosImpl =
+      fln.resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin>();
+  await iosImpl?.requestPermissions(alert: true, badge: true, sound: true);
+
+  _notificationsInitialized = true;
+}
+
+Future<void> scheduleDayBefore(String id, String title, String startDateIso) async {
+  try {
+    final parts = startDateIso.split('-').map(int.parse).toList();
+    if (parts.length < 3) return;
+
+    final eventDate = DateTime(parts[0], parts[1], parts[2], 9);
+    final notifyTime = eventDate.subtract(const Duration(days: 1));
+    if (notifyTime.isBefore(DateTime.now())) return;
+
+    final when = tz.TZDateTime.from(notifyTime, tz.local);
+
+    const androidDetails = AndroidNotificationDetails(
+      'eaglenav_events',
+      'Event Reminders',
+      channelDescription: 'Notifies you the day before bookmarked events',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+
+    const details = NotificationDetails(android: androidDetails);
+
+    await fln.zonedSchedule(
+      id.hashCode,
+      'Event tomorrow: $title',
+      'Happening on $startDateIso',
+      when,
+      details,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.dateAndTime,
+    );
+  } catch (e) {
+    debugPrint('⚠️ scheduleDayBefore failed: $e');
+
+    const fallbackDetails = AndroidNotificationDetails(
+      'eaglenav_fallback',
+      'Fallback Notifications',
+      channelDescription: 'Used when scheduling fails',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+
+    await fln.show(
+      id.hashCode,
+      'Reminder saved: $title',
+      'Event reminder could not be scheduled',
+      const NotificationDetails(android: fallbackDetails),
+    );
+  }
+}
+
+Future<void> scheduleOnDay(
+  String id,
+  String title,
+  String startDateIso, {
+  int hour = 9,
+}) async {
+  try {
+    final parts = startDateIso.split('-').map(int.parse).toList();
+    if (parts.length < 3) return;
+
+    final notifyTime = DateTime(parts[0], parts[1], parts[2], hour);
+    if (notifyTime.isBefore(DateTime.now())) return;
+
+    final when = tz.TZDateTime.from(notifyTime, tz.local);
+
+    const androidDetails = AndroidNotificationDetails(
+      'eaglenav_events',
+      'Event Reminders',
+      channelDescription: 'Notifies you for bookmarked events',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+
+    const details = NotificationDetails(android: androidDetails);
+
+    await fln.zonedSchedule(
+      id.hashCode,
+      'Today: $title',
+      'Happening on $startDateIso',
+      when,
+      details,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.dateAndTime,
+    );
+  } catch (e) {
+    debugPrint('⚠️ scheduleOnDay failed: $e');
+
+    const fallbackDetails = AndroidNotificationDetails(
+      'eaglenav_fallback',
+      'Fallback Notifications',
+      channelDescription: 'Used when scheduling fails',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+
+    await fln.show(
+      id.hashCode,
+      'Reminder saved: $title',
+      'Exact alarms not permitted — fallback triggered',
+      const NotificationDetails(android: fallbackDetails),
+    );
+  }
+}
+
+Future<void> cancelReminder(String id) async {
+  try {
+    await fln.cancel(id.hashCode);
+  } catch (e) {
+    debugPrint('cancelReminder error: $e');
+  }
+}
 
 const Map<int, String> eventGroupNames = {
   1656: 'University',
@@ -84,6 +242,7 @@ class _EventsScreenState extends State<EventsScreen> {
   @override
   void initState() {
     super.initState();
+    initEventNotifications(); 
     _loadBookmarks().then((_) => _loadEvents());
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=

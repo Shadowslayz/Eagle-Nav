@@ -5,8 +5,8 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:ultralytics_yolo/ultralytics_yolo.dart';
 
 /// ✅ main.dart calls CVisionScreen(), so keep this wrapper.
-class CVisionScreen extends StatelessWidget {
-  const CVisionScreen({super.key});
+class cv_screen extends StatelessWidget {
+  const cv_screen({super.key});
 
   @override
   Widget build(BuildContext context) => const CVisionObjectsScreen();

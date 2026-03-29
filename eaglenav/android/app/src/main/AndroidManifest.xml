@@ -10,6 +10,10 @@
         android:name="android.hardware.camera.any"
         android:required="false" />
 
+    <uses-feature
+        android:name="com.google.ar.core.depth"
+        android:required="false" />
+
     <!-- ✅ Allow scheduling exact alarms -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
@@ -56,6 +60,10 @@
         </activity>
 
         <!-- Flutter plugin auto-registration -->
+        <meta-data
+            android:name="com.google.ar.core"
+            android:value="optional" />
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

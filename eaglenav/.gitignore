@@ -60,3 +60,5 @@ lib/models/step_dto.dart
 **/windows/flutter/generated_plugin_registrant.cc
 /windows/flutter/generated_plugin_registrant.h
 /windows/flutter/generated_plugins.cmake
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh

@@ -8,7 +8,6 @@ import 'cv_screen.dart'; // this is where CVisionScreen is
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
-
   @override
   State<MainShell> createState() => _MainShellState();
 }
@@ -16,13 +15,14 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _selectedIndex = 0;
 
+  // All pages except CV stay in the IndexedStack so they keep their state
   late final List<Widget> _pages = [
     const NavigationScreen(), 
     const FavoritesTab(),
     const EventsScreen(),
     const ProfileTab(),
     const EmergencyTab(),
-    const cv_screen(),
+    const SizedBox.shrink(), // placeholder for CV index
   ];
 
   void _onItemTapped(int index) {
@@ -34,19 +34,21 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _pages,
-      ),
+      // CV tab (index 5) is shown outside IndexedStack so the camera
+      // only runs when active and gets fully disposed when you switch away.
+      // This prevents iOS from killing the app due to camera + location conflict.
+      body: _selectedIndex == 5
+          ? const cv_screen()
+          : IndexedStack(
+              index: _selectedIndex,
+              children: _pages,
+            ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _selectedIndex,
           onDestinationSelected: _onItemTapped,
-
           backgroundColor: const Color.fromARGB(255, 222, 182, 52), // gold
           indicatorColor: Colors.transparent, // remove pill if you want flat look
-
           height: 70, // 👈 controls overall bar height
-
           labelTextStyle: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.selected)) {
               return const TextStyle(
@@ -60,7 +62,6 @@ class _MainShellState extends State<MainShell> {
               fontSize: 11,
             );
           }),
-
           destinations: const [
             NavigationDestination(
               icon: Icon(Icons.home_outlined, size: 24, color: Colors.white),

@@ -1,0 +1,24 @@
+# ninja log v5
+0	480	1773975673506964360	CMakeFiles/ultralytics.dir/native-lib.cpp.o	1895d74764a5d41c
+482	536	1773975673566911119	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/armeabi-v7a/libultralytics.so	bbd6338e0e1b5ade
+0	9	0	clean	fc331182e77667a9
+2	381	1773981095955892605	CMakeFiles/ultralytics.dir/native-lib.cpp.o	1895d74764a5d41c
+381	433	1773981096010273126	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/armeabi-v7a/libultralytics.so	bbd6338e0e1b5ade
+0	7	0	clean	fc331182e77667a9
+3	396	1773981451801681156	CMakeFiles/ultralytics.dir/native-lib.cpp.o	1895d74764a5d41c
+396	454	1773981451866515874	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/armeabi-v7a/libultralytics.so	bbd6338e0e1b5ade
+0	5	0	clean	fc331182e77667a9
+3	508	1773981616840195886	CMakeFiles/ultralytics.dir/native-lib.cpp.o	1895d74764a5d41c
+508	559	1773981616894919490	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/armeabi-v7a/libultralytics.so	bbd6338e0e1b5ade
+0	5	0	clean	fc331182e77667a9
+3	300	1773984163976253757	CMakeFiles/ultralytics.dir/native-lib.cpp.o	1895d74764a5d41c
+300	338	1773984164016101350	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/armeabi-v7a/libultralytics.so	bbd6338e0e1b5ade
+0	5	0	clean	fc331182e77667a9
+2	292	1773986765247716015	CMakeFiles/ultralytics.dir/native-lib.cpp.o	1895d74764a5d41c
+292	331	1773986765289228665	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/armeabi-v7a/libultralytics.so	bbd6338e0e1b5ade
+0	6	0	clean	fc331182e77667a9
+3	385	1774113311050199453	CMakeFiles/ultralytics.dir/native-lib.cpp.o	1895d74764a5d41c
+385	438	1774113311105958277	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/armeabi-v7a/libultralytics.so	bbd6338e0e1b5ade
+0	5	0	clean	fc331182e77667a9
+2	336	1774113579344497756	CMakeFiles/ultralytics.dir/native-lib.cpp.o	1895d74764a5d41c
+336	381	1774113579397790931	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/armeabi-v7a/libultralytics.so	bbd6338e0e1b5ade

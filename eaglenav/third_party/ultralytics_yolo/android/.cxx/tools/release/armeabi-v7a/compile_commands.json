@@ -1,0 +1,7 @@
+[
+{
+  "directory": "/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/third_party/ultralytics_yolo/android/.cxx/RelWithDebInfo/162q6k46/armeabi-v7a",
+  "command": "/Users/nickshroff/Library/Android/sdk/ndk/28.0.13004108/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang++ --target=armv7-none-linux-androideabi21 --sysroot=/Users/nickshroff/Library/Android/sdk/ndk/28.0.13004108/toolchains/llvm/prebuilt/darwin-x86_64/sysroot -Dultralytics_EXPORTS -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -march=armv7-a -mthumb -Wformat -Werror=format-security   -O2 -g -DNDEBUG -fPIC -o CMakeFiles/ultralytics.dir/native-lib.cpp.o -c /Users/nickshroff/Desktop/Eagle-Nav/eaglenav/third_party/ultralytics_yolo/android/src/main/cpp/native-lib.cpp",
+  "file": "/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/third_party/ultralytics_yolo/android/src/main/cpp/native-lib.cpp"
+}
+]

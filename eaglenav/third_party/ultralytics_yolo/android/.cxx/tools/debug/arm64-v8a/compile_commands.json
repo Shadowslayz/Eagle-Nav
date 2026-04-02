@@ -1,0 +1,7 @@
+[
+{
+  "directory": "C:/Users/skuma/Desktop/Eagle-Nav/eaglenav/third_party/ultralytics_yolo/android/.cxx/Debug/6f6q193o/arm64-v8a",
+  "command": "C:\\Users\\skuma\\AppData\\Local\\Android\\Sdk\\ndk\\28.0.13004108\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang++.exe --target=aarch64-none-linux-android21 --sysroot=C:/Users/skuma/AppData/Local/Android/Sdk/ndk/28.0.13004108/toolchains/llvm/prebuilt/windows-x86_64/sysroot -Dultralytics_EXPORTS -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security   -fno-limit-debug-info  -fPIC -o CMakeFiles\\ultralytics.dir\\native-lib.cpp.o -c C:\\Users\\skuma\\Desktop\\Eagle-Nav\\eaglenav\\third_party\\ultralytics_yolo\\android\\src\\main\\cpp\\native-lib.cpp",
+  "file": "C:\\Users\\skuma\\Desktop\\Eagle-Nav\\eaglenav\\third_party\\ultralytics_yolo\\android\\src\\main\\cpp\\native-lib.cpp"
+}
+]

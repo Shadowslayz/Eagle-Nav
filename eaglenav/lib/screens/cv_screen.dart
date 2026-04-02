@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:ultralytics_yolo/ultralytics_yolo.dart';
 
-/// ✅ main.dart calls CVisionScreen(), so keep this wrapper.
+/// main.dart calls CVisionScreen(), so keep this wrapper.
 class cv_screen extends StatelessWidget {
   const cv_screen({super.key});
 
@@ -19,28 +19,64 @@ class CVisionObjectsScreen extends StatefulWidget {
   State<CVisionObjectsScreen> createState() => _CVisionObjectsScreenState();
 }
 
-class _CVisionObjectsScreenState extends State<CVisionObjectsScreen> {
+class _CVisionObjectsScreenState extends State<CVisionObjectsScreen>
+    with WidgetsBindingObserver {
   final FlutterTts _tts = FlutterTts();
 
   String _lastSentence = '';
   DateTime _lastSpoken = DateTime.fromMillisecondsSinceEpoch(0);
+  bool _hasError = false;
+  String _errorMessage = '';
+  bool _isReady = false;
 
   @override
   void initState() {
     super.initState();
-    _initTts();
+    WidgetsBinding.instance.addObserver(this);
+    _init();
+  }
+
+  Future<void> _init() async {
+    try {
+      await _initTts();
+      // Small delay to let the platform view settle before rendering
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        setState(() => _isReady = true);
+      }
+    } catch (e) {
+      debugPrint('CV init error: $e');
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = 'Failed to initialize: $e';
+        });
+      }
+    }
   }
 
   Future<void> _initTts() async {
     await _tts.setLanguage('en-US');
     await _tts.setSpeechRate(0.5);
     await _tts.setVolume(1.0);
-    // optional but helps avoid overlap on some devices:
-    // await _tts.awaitSpeakCompletion(true);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When app comes back to foreground, reset error state and retry
+    if (state == AppLifecycleState.resumed && _hasError) {
+      setState(() {
+        _hasError = false;
+        _errorMessage = '';
+        _isReady = false;
+      });
+      _init();
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tts.stop();
     super.dispose();
   }
@@ -58,8 +94,12 @@ class _CVisionObjectsScreenState extends State<CVisionObjectsScreen> {
       _lastSpoken = now;
     });
 
-    await _tts.stop();
-    await _tts.speak(sentence);
+    try {
+      await _tts.stop();
+      await _tts.speak(sentence);
+    } catch (e) {
+      debugPrint('TTS error: $e');
+    }
   }
 
   bool _isPillarLike(String name) {
@@ -100,16 +140,23 @@ class _CVisionObjectsScreenState extends State<CVisionObjectsScreen> {
     await _speak('I see ${parts.join(', ')}');
   }
 
+  void _retry() {
+    setState(() {
+      _hasError = false;
+      _errorMessage = '';
+      _isReady = false;
+    });
+    _init();
+  }
+
   @override
   Widget build(BuildContext context) {
-    // ✅ same strategy as your “works” version
-    final String modelPath = Platform.isAndroid
-        ? 'yolo11n.tflite'
-        : 'yolo11n';
+    final String modelPath =
+        Platform.isAndroid ? 'yolo11n.tflite' : 'yolo11n';
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Computer Vision (Objects)'),
+        title: const Text('Computer Vision (Objects + Distance)'),
         backgroundColor: const Color.fromARGB(255, 161, 133, 40),
         actions: [
           IconButton(
@@ -120,34 +167,115 @@ class _CVisionObjectsScreenState extends State<CVisionObjectsScreen> {
               if (!context.mounted) return;
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const CVisionSegmentationScreen()),
+                MaterialPageRoute(
+                    builder: (_) => const CVisionSegmentationScreen()),
               );
             },
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          YOLOView(
-            key: const ValueKey('yolo_detect_view'),
-            modelPath: modelPath,
-            task: YOLOTask.detect,
-            confidenceThreshold: 0.30,
-            showOverlays: true,
-            onResult: _handleResults,
-          ),
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: 32,
-            child: _Hud(
-              text: _lastSentence.isEmpty
-                  ? 'Point the camera at something…'
-                  : _lastSentence,
+      body: _hasError
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_outline,
+                        size: 48, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Camera failed to start',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _errorMessage,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: _retry,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : Stack(
+              children: [
+                if (_isReady)
+                  _SafeYOLOView(
+                    modelPath: modelPath,
+                    task: YOLOTask.detect,
+                    onResult: _handleResults,
+                    onError: (error) {
+                      if (mounted) {
+                        setState(() {
+                          _hasError = true;
+                          _errorMessage = error;
+                        });
+                      }
+                    },
+                  )
+                else
+                  const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('Initializing camera...'),
+                      ],
+                    ),
+                  ),
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: 32,
+                  child: _Hud(
+                    text: _lastSentence.isEmpty
+                        ? 'Point the camera at something…'
+                        : _lastSentence,
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
+    );
+  }
+}
+
+/// Wraps YOLOView in an error boundary so platform view crashes
+/// don't kill the whole app.
+class _SafeYOLOView extends StatefulWidget {
+  final String modelPath;
+  final YOLOTask task;
+  final void Function(List<YOLOResult>) onResult;
+  final void Function(String error) onError;
+
+  const _SafeYOLOView({
+    required this.modelPath,
+    required this.task,
+    required this.onResult,
+    required this.onError,
+  });
+
+  @override
+  State<_SafeYOLOView> createState() => _SafeYOLOViewState();
+}
+
+class _SafeYOLOViewState extends State<_SafeYOLOView> {
+  @override
+  Widget build(BuildContext context) {
+    return YOLOView(
+      key: ValueKey('yolo_${widget.task.name}_view'),
+      modelPath: widget.modelPath,
+      task: widget.task,
+      confidenceThreshold: 0.30,
+      showOverlays: true,
+      onResult: widget.onResult,
     );
   }
 }
@@ -160,28 +288,57 @@ class CVisionSegmentationScreen extends StatefulWidget {
       _CVisionSegmentationScreenState();
 }
 
-class _CVisionSegmentationScreenState extends State<CVisionSegmentationScreen> {
+class _CVisionSegmentationScreenState extends State<CVisionSegmentationScreen>
+    with WidgetsBindingObserver {
   final FlutterTts _tts = FlutterTts();
 
   String _status = 'Segmentation active…';
   DateTime _lastSpoken = DateTime.fromMillisecondsSinceEpoch(0);
+  bool _hasError = false;
+  bool _isReady = false;
 
   @override
   void initState() {
     super.initState();
-    _initTts();
+    WidgetsBinding.instance.addObserver(this);
+    _init();
+  }
+
+  Future<void> _init() async {
+    try {
+      await _initTts();
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        setState(() => _isReady = true);
+      }
+    } catch (e) {
+      debugPrint('Segmentation init error: $e');
+      if (mounted) {
+        setState(() => _hasError = true);
+      }
+    }
   }
 
   Future<void> _initTts() async {
     await _tts.setLanguage('en-US');
     await _tts.setSpeechRate(0.5);
     await _tts.setVolume(1.0);
-    // optional:
-    // await _tts.awaitSpeakCompletion(true);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _hasError) {
+      setState(() {
+        _hasError = false;
+        _isReady = false;
+      });
+      _init();
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tts.stop();
     super.dispose();
   }
@@ -198,8 +355,12 @@ class _CVisionSegmentationScreenState extends State<CVisionSegmentationScreen> {
       _lastSpoken = now;
     });
 
-    await _tts.stop();
-    await _tts.speak(sentence);
+    try {
+      await _tts.stop();
+      await _tts.speak(sentence);
+    } catch (e) {
+      debugPrint('TTS error: $e');
+    }
   }
 
   Future<void> _handleSegResults(List<YOLOResult> results) async {
@@ -230,38 +391,51 @@ class _CVisionSegmentationScreenState extends State<CVisionSegmentationScreen> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
-    // ✅ same strategy as your “works” version
-    final String modelPath = Platform.isAndroid
-        ? 'yolo11n-seg.tflite'
-        : 'yolo11n-seg';
-
+    final String modelPath =
+        Platform.isAndroid ? 'yolo11n-seg.tflite' : 'yolo11n-seg';
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Computer Vision (Segmentation)'),
         backgroundColor: const Color.fromARGB(255, 161, 133, 40),
       ),
-      body: Stack(
-        children: [
-          YOLOView(
-            key: const ValueKey('yolo_segment_view'),
-            modelPath: modelPath,
-            task: YOLOTask.segment,
-            confidenceThreshold: 0.30,
-            showOverlays: true,
-            onResult: _handleSegResults,
-          ),
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: 32,
-            child: _Hud(text: _status),
-          ),
-        ],
-      ),
+      body: _hasError
+          ? Center(
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _hasError = false;
+                    _isReady = false;
+                  });
+                  _init();
+                },
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
+            )
+          : Stack(
+              children: [
+                if (_isReady)
+                  YOLOView(
+                    key: const ValueKey('yolo_segment_view'),
+                    modelPath: modelPath,
+                    task: YOLOTask.segment,
+                    confidenceThreshold: 0.30,
+                    showOverlays: true,
+                    onResult: _handleSegResults,
+                  )
+                else
+                  const Center(child: CircularProgressIndicator()),
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: 32,
+                  child: _Hud(text: _status),
+                ),
+              ],
+            ),
     );
   }
 }

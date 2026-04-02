@@ -1,9 +1,13 @@
 import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:ultralytics_yolo/ultralytics_yolo.dart';
-
 /// main.dart calls CVisionScreen(), so keep this wrapper.
 class cv_screen extends StatelessWidget {
   const cv_screen({super.key});
@@ -25,9 +29,11 @@ class _CVisionObjectsScreenState extends State<CVisionObjectsScreen>
 
   String _lastSentence = '';
   DateTime _lastSpoken = DateTime.fromMillisecondsSinceEpoch(0);
+  MethodChannel? _arcoreChannel;
   bool _hasError = false;
   String _errorMessage = '';
   bool _isReady = false;
+  bool _cameraGranted = !Platform.isAndroid;
 
   @override
   void initState() {
@@ -39,7 +45,22 @@ class _CVisionObjectsScreenState extends State<CVisionObjectsScreen>
   Future<void> _init() async {
     try {
       await _initTts();
-      // Small delay to let the platform view settle before rendering
+
+      if (Platform.isAndroid) {
+        final granted = await _ensureAndroidCameraPermission();
+        if (!mounted) return;
+        if (!granted) {
+          setState(() {
+            _hasError = true;
+            _errorMessage = 'Camera permission is required for distance estimation.';
+            _isReady = false;
+            _cameraGranted = false;
+          });
+          return;
+        }
+        _cameraGranted = true;
+      }
+
       await Future.delayed(const Duration(milliseconds: 500));
       if (mounted) {
         setState(() => _isReady = true);
@@ -61,9 +82,38 @@ class _CVisionObjectsScreenState extends State<CVisionObjectsScreen>
     await _tts.setVolume(1.0);
   }
 
+  Future<bool> _ensureAndroidCameraPermission() async {
+    var status = await Permission.camera.status;
+    if (status.isGranted) return true;
+
+    status = await Permission.camera.request();
+    return status.isGranted;
+  }
+
+  Future<void> _resumeArCore({String contextLabel = 'resume'}) async {
+    final channel = _arcoreChannel;
+    if (channel == null) return;
+
+    try {
+      await channel.invokeMethod('resume');
+    } catch (e) {
+      debugPrint('ARCore $contextLabel error: $e');
+    }
+  }
+
+  Future<void> _pauseArCore({String contextLabel = 'pause'}) async {
+    final channel = _arcoreChannel;
+    if (channel == null) return;
+
+    try {
+      await channel.invokeMethod('pause');
+    } catch (e) {
+      debugPrint('ARCore $contextLabel error: $e');
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // When app comes back to foreground, reset error state and retry
     if (state == AppLifecycleState.resumed && _hasError) {
       setState(() {
         _hasError = false;
@@ -71,6 +121,17 @@ class _CVisionObjectsScreenState extends State<CVisionObjectsScreen>
         _isReady = false;
       });
       _init();
+      return;
+    }
+
+    if (!Platform.isAndroid) return;
+
+    if (state == AppLifecycleState.resumed) {
+      _resumeArCore(contextLabel: 'resume on app resume');
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _pauseArCore(contextLabel: 'pause on app pause');
     }
   }
 
@@ -78,6 +139,7 @@ class _CVisionObjectsScreenState extends State<CVisionObjectsScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _tts.stop();
+    _pauseArCore(contextLabel: 'pause during dispose');
     super.dispose();
   }
 
@@ -111,18 +173,16 @@ class _CVisionObjectsScreenState extends State<CVisionObjectsScreen>
         n.contains('bollard');
   }
 
-  Future<void> _handleResults(List<YOLOResult> results) async {
-    if (results.isEmpty) return;
-
+  Future<void> _announceDetections(Iterable<String> names) async {
     final now = DateTime.now();
     if (!_cooldownOk(now)) return;
 
     final others = <String>{};
-    bool hasPillar = false;
+    var hasPillar = false;
 
-    for (final r in results) {
-      final name = r.className;
-      if (name == null || name.isEmpty) continue;
+    for (final rawName in names) {
+      final name = rawName.trim();
+      if (name.isEmpty) continue;
 
       if (_isPillarLike(name)) {
         hasPillar = true;
@@ -138,6 +198,44 @@ class _CVisionObjectsScreenState extends State<CVisionObjectsScreen>
     if (others.isNotEmpty) parts.addAll(others.take(3));
 
     await _speak('I see ${parts.join(', ')}');
+  }
+
+  Future<void> _handleResults(List<YOLOResult> results) async {
+    if (results.isEmpty) return;
+    await _announceDetections(
+      results.map((r) => r.className).whereType<String>(),
+    );
+  }
+
+  void _onArCorePlatformViewCreated(int viewId) {
+    final channel = MethodChannel('arcore_yolo_view_$viewId');
+    _arcoreChannel = channel;
+
+    channel.setMethodCallHandler((call) async {
+      if (call.method != 'onDetections') return;
+
+      final arguments = call.arguments;
+      final payload = arguments is List ? List<dynamic>.from(arguments) : const <dynamic>[];
+      await _handleArcoreDetections(payload);
+    });
+
+    _resumeArCore(contextLabel: 'resume after platform view created');
+  }
+
+  Future<void> _handleArcoreDetections(List<dynamic> payload) async {
+    if (payload.isEmpty) return;
+
+    final names = <String>[];
+    for (final item in payload) {
+      if (item is! Map) continue;
+      final className = item['class'];
+      if (className is String && className.isNotEmpty) {
+        names.add(className);
+      }
+    }
+
+    if (names.isEmpty) return;
+    await _announceDetections(names);
   }
 
   void _retry() {
@@ -164,12 +262,20 @@ class _CVisionObjectsScreenState extends State<CVisionObjectsScreen>
             icon: const Icon(Icons.texture),
             onPressed: () async {
               await _tts.stop();
-              if (!context.mounted) return;
-              Navigator.push(
+              if (Platform.isAndroid) {
+                await _pauseArCore(contextLabel: 'pause before segmentation');
+              }
+
+              if (!mounted) return;
+              await Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (_) => const CVisionSegmentationScreen()),
+                  builder: (_) => const CVisionSegmentationScreen(),
+                ),
               );
+
+              if (!mounted || !Platform.isAndroid) return;
+              _resumeArCore(contextLabel: 'resume after segmentation');
             },
           ),
         ],
@@ -206,11 +312,11 @@ class _CVisionObjectsScreenState extends State<CVisionObjectsScreen>
             )
           : Stack(
               children: [
-                if (_isReady)
-                  _SafeYOLOView(
+                if (_isReady && (!Platform.isAndroid || _cameraGranted))
+                  _ObjectCameraView(
                     modelPath: modelPath,
-                    task: YOLOTask.detect,
                     onResult: _handleResults,
+                    onAndroidPlatformViewCreated: _onArCorePlatformViewCreated,
                     onError: (error) {
                       if (mounted) {
                         setState(() {
@@ -243,6 +349,78 @@ class _CVisionObjectsScreenState extends State<CVisionObjectsScreen>
                 ),
               ],
             ),
+    );
+  }
+}
+
+/// Android must use the native ARCore platform view so distance / length /
+/// width / processing labels come from the custom renderer.
+/// iOS keeps using the YOLO plugin camera view.
+class _ObjectCameraView extends StatelessWidget {
+  final String modelPath;
+  final void Function(List<YOLOResult>) onResult;
+  final ValueChanged<int> onAndroidPlatformViewCreated;
+  final void Function(String error) onError;
+
+  const _ObjectCameraView({
+    required this.modelPath,
+    required this.onResult,
+    required this.onAndroidPlatformViewCreated,
+    required this.onError,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (Platform.isAndroid) {
+      return _AndroidArCoreYoloView(
+        onPlatformViewCreated: onAndroidPlatformViewCreated,
+      );
+    }
+
+    return _SafeYOLOView(
+      modelPath: modelPath,
+      task: YOLOTask.detect,
+      onResult: onResult,
+      onError: onError,
+    );
+  }
+}
+
+class _AndroidArCoreYoloView extends StatelessWidget {
+  final ValueChanged<int> onPlatformViewCreated;
+
+  const _AndroidArCoreYoloView({
+    required this.onPlatformViewCreated,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return PlatformViewLink(
+      key: const ValueKey('android_arcore_yolo_view'),
+      viewType: 'arcore_yolo_view',
+      surfaceFactory: (context, controller) {
+        return AndroidViewSurface(
+          controller: controller as AndroidViewController,
+          gestureRecognizers:
+              const <Factory<OneSequenceGestureRecognizer>>{},
+          hitTestBehavior: PlatformViewHitTestBehavior.opaque,
+        );
+      },
+      onCreatePlatformView: (params) {
+        final controller = PlatformViewsService.initExpensiveAndroidView(
+          id: params.id,
+          viewType: 'arcore_yolo_view',
+          layoutDirection: TextDirection.ltr,
+          onFocus: () => params.onFocusChanged(true),
+        );
+
+        controller.addOnPlatformViewCreatedListener((viewId) {
+          params.onPlatformViewCreated(viewId);
+          onPlatformViewCreated(viewId);
+        });
+        controller.create();
+        return controller;
+      },
     );
   }
 }

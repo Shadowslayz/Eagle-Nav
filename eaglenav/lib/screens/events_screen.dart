@@ -36,9 +36,7 @@ Future<void> initEventNotifications() async {
           AndroidFlutterLocalNotificationsPlugin>();
   await androidImpl?.requestNotificationsPermission();
 
-  if (Platform.isAndroid) {
-    await androidImpl?.requestExactAlarmsPermission();
-  }
+  
 
   final iosImpl =
       fln.resolvePlatformSpecificImplementation<

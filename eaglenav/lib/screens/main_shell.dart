@@ -44,55 +44,51 @@ class _MainShellState extends State<MainShell> {
         bottomNavigationBar: NavigationBar(
           selectedIndex: _selectedIndex,
           onDestinationSelected: _onItemTapped,
-
-          backgroundColor: const Color.fromARGB(255, 222, 182, 52), // gold
-          indicatorColor: Colors.transparent, // remove pill if you want flat look
-
-          height: 70, // 👈 controls overall bar height
-
+          backgroundColor: const Color(0xFF1A1A1A),
+          indicatorColor: const Color(0xFFC9A227),
+          height: 68,
           labelTextStyle: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.selected)) {
               return const TextStyle(
-                color: Colors.black,
-                fontSize: 12,
+                color: Color(0xFFC9A227),
+                fontSize: 11,
                 fontWeight: FontWeight.bold,
               );
             }
             return const TextStyle(
-              color: Colors.white,
+              color: Colors.white54,
               fontSize: 11,
             );
           }),
-
           destinations: const [
             NavigationDestination(
-              icon: Icon(Icons.home_outlined, size: 24, color: Colors.white),
-              selectedIcon: Icon(Icons.home, size: 30, color: Colors.black),
+              icon: Icon(Icons.home_outlined, color: Colors.white54),
+              selectedIcon: Icon(Icons.home, color: Colors.black),
               label: 'Home',
             ),
             NavigationDestination(
-              icon: Icon(Icons.star_border, size: 24, color: Colors.white),
-              selectedIcon: Icon(Icons.star, size: 30, color: Colors.black),
+              icon: Icon(Icons.star_border, color: Colors.white54),
+              selectedIcon: Icon(Icons.star, color: Colors.black),
               label: 'Favorites',
             ),
             NavigationDestination(
-              icon: Icon(Icons.event_outlined, size: 24, color: Colors.white),
-              selectedIcon: Icon(Icons.event, size: 30, color: Colors.black),
+              icon: Icon(Icons.event_outlined, color: Colors.white54),
+              selectedIcon: Icon(Icons.event, color: Colors.black),
               label: 'Events',
             ),
             NavigationDestination(
-              icon: Icon(Icons.person_outline, size: 24, color: Colors.white),
-              selectedIcon: Icon(Icons.person, size: 30, color: Colors.black),
+              icon: Icon(Icons.person_outline, color: Colors.white54),
+              selectedIcon: Icon(Icons.person, color: Colors.black),
               label: 'Profile',
             ),
             NavigationDestination(
-              icon: Icon(Icons.warning_amber_outlined, size: 24, color: Colors.white),
-              selectedIcon: Icon(Icons.warning, size: 30, color: Colors.red),
+              icon: Icon(Icons.shield_outlined, color: Colors.white54),
+              selectedIcon: Icon(Icons.shield, color: Colors.black),
               label: 'Emergency',
             ),
             NavigationDestination(
-              icon: Icon(Icons.visibility_outlined, size: 24, color: Colors.white),
-              selectedIcon: Icon(Icons.visibility, size: 30, color: Colors.black),
+              icon: Icon(Icons.visibility_outlined, color: Colors.white54),
+              selectedIcon: Icon(Icons.visibility, color: Colors.black),
               label: 'CV',
             ),
           ],

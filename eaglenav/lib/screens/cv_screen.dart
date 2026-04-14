@@ -109,8 +109,7 @@ class _CVisionObjectsScreenState extends State<CVisionObjectsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Computer Vision (Objects)'),
-        backgroundColor: const Color.fromARGB(255, 161, 133, 40),
+        title: const Text('Computer Vision'),
         actions: [
           Semantics(
             label: 'Switch to segmentation view',
@@ -247,8 +246,7 @@ class _CVisionSegmentationScreenState extends State<CVisionSegmentationScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Computer Vision (Segmentation)'),
-        backgroundColor: const Color.fromARGB(255, 161, 133, 40),
+        title: const Text('Segmentation'),
       ),
       body: Stack(
         children: [

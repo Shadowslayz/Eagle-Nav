@@ -438,22 +438,24 @@ class _NavigationScreenState extends State<NavigationScreen> {
                         if (destination != null)
                           Marker(
                             point: destination,
-                            width: 120,
-                            height: 60,
+                            width: 140,
+                            height: 68,
                             child: Column(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
+                                    horizontal: 10,
+                                    vertical: 5,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
+                                    color: const Color(0xFF1A1A1A),
+                                    borderRadius: BorderRadius.circular(10),
                                     boxShadow: const [
                                       BoxShadow(
-                                        color: Colors.black26,
-                                        blurRadius: 4,
+                                        color: Colors.black38,
+                                        blurRadius: 6,
+                                        offset: Offset(0, 2),
                                       ),
                                     ],
                                   ),
@@ -461,16 +463,17 @@ class _NavigationScreenState extends State<NavigationScreen> {
                                     _uiController.selectedDestination?.name ??
                                         'Destination',
                                     style: const TextStyle(
-                                      fontSize: 10,
+                                      fontSize: 11,
                                       fontWeight: FontWeight.bold,
+                                      color: Colors.white,
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                                 const Icon(
                                   Icons.location_pin,
-                                  color: Colors.red,
-                                  size: 28,
+                                  color: Color(0xFFC9A227),
+                                  size: 30,
                                 ),
                               ],
                             ),
@@ -514,10 +517,11 @@ class _NavigationScreenState extends State<NavigationScreen> {
                       curve: Curves.easeInOut,
                       right: 16,
                       bottom:
-                          (isNavigating || isDestinationSelected) ? 240 : 120,
+                          (isNavigating || isDestinationSelected) ? 240 : 100,
                       child: FloatingActionButton(
                         heroTag: 'recenter_btn_safe',
-                        backgroundColor: Colors.white,
+                        backgroundColor: const Color(0xFF1A1A1A),
+                        elevation: 4,
                         onPressed: () {
                           final userLocation =
                               _locationController.currentLocation;
@@ -533,7 +537,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
                         },
                         child: const Icon(
                           Icons.my_location,
-                          color: Colors.blue,
+                          color: Color(0xFFC9A227),
                         ),
                       ),
                     ),
@@ -544,29 +548,25 @@ class _NavigationScreenState extends State<NavigationScreen> {
                       curve: Curves.easeInOut,
                       left: 16,
                       bottom:
-                          (isNavigating || isDestinationSelected) ? 240 : 120,
+                          (isNavigating || isDestinationSelected) ? 240 : 100,
                       child: Column(
                         children: [
                           FloatingActionButton(
                             heroTag: 'zoom_in',
                             mini: true,
-                            backgroundColor: Colors.white,
+                            backgroundColor: const Color(0xFF1A1A1A),
+                            elevation: 4,
                             onPressed: _zoomIn,
-                            child: const Icon(
-                              Icons.add,
-                              color: Colors.black,
-                            ),
+                            child: const Icon(Icons.add, color: Colors.white),
                           ),
                           const SizedBox(height: 10),
                           FloatingActionButton(
                             heroTag: 'zoom_out',
                             mini: true,
-                            backgroundColor: Colors.white,
+                            backgroundColor: const Color(0xFF1A1A1A),
+                            elevation: 4,
                             onPressed: _zoomOut,
-                            child: const Icon(
-                              Icons.remove,
-                              color: Colors.black,
-                            ),
+                            child: const Icon(Icons.remove, color: Colors.white),
                           ),
                         ],
                       ),
@@ -628,40 +628,67 @@ class _TurnByTurnPanel extends StatelessWidget {
     this.isRerouting = false,
   });
 
+  String _formatDistance(double meters) {
+    if (meters >= 1000) {
+      return '${(meters / 1000).toStringAsFixed(1)} km';
+    }
+    return '${meters.toStringAsFixed(0)} m';
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: Colors.blue.shade700,
-      elevation: 8,
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
           children: [
-            Row(
-              children: [
-                const Icon(Icons.navigation, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFC9A227).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.navigation, color: Color(0xFFC9A227), size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
                     instruction,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
+                      height: 1.3,
                     ),
                   ),
-                ),
-              ],
-            ),
-            if (distanceMeters != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  'in ${distanceMeters!.toStringAsFixed(0)} m',
-                  style: const TextStyle(color: Colors.white70, fontSize: 16),
-                ),
+                  if (distanceMeters != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'in ${_formatDistance(distanceMeters!)}',
+                      style: const TextStyle(
+                        color: Color(0xFFC9A227),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
               ),
+            ),
           ],
         ),
       ),
@@ -674,32 +701,36 @@ class _ReroutingBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: Colors.orange.shade700,
-      elevation: 8,
-      child: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
-              ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade800,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: const Row(
+        children: [
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+          ),
+          SizedBox(width: 12),
+          Text(
+            'Recalculating route…',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
             ),
-            SizedBox(width: 12),
-            Text(
-              'Recalculating route...',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

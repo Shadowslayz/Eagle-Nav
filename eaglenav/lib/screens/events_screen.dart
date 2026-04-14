@@ -499,12 +499,7 @@ class _EventsScreenState extends State<EventsScreen> with AutomaticKeepAliveClie
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color.fromARGB(255, 161, 133, 40),
-        title: const Text("Events",
-            style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
-                color: Colors.white)),
+        title: const Text('Events'),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 10.0),
@@ -514,7 +509,6 @@ class _EventsScreenState extends State<EventsScreen> with AutomaticKeepAliveClie
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color.fromARGB(255, 140, 110, 30)),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(

@@ -78,14 +78,14 @@
             "coordinates": [34.06745785629236, -118.16744742134989],
             "accessible": true,
             "speakable": true,
-            "description": "JFK Libary - North Entrance"
+            "description": "JFK Library - North Entrance"
           },
           {
             "id": "jfk_lib_s",
             "coordinates": [34.067298623106076, -118.16745521107217],
             "accessible": true,
             "speakable": true,
-            "description": "JFK Libary - South/Palmer Wing"
+            "description": "JFK Library - South/Palmer Wing"
           }
         ]
       }
@@ -94,7 +94,7 @@
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [34.06737498218105, -118.16812275471472] },
       "properties": {
-        "id": "GE",
+        "id": "bookstore",
         "name": "Golden Eagle Book Store",
         "kind": "building",
         "speakable": true,
@@ -122,7 +122,7 @@
       "geometry": { "type": "Point", "coordinates": [34.06619055526484, -118.1683308312372] },
       "properties": {
         "id": "career_center",
-        "name": "Career Center ",
+        "name": "Career Center",
         "kind": "building",
         "speakable": true,
         "center": [34.06619055526484, -118.1683308312372],
@@ -152,7 +152,7 @@
             "coordinates": [34.066619900263134, -118.16668318042561],
             "accessible": true,
             "speakable": true,
-            "description": "Engineering & Technology Open Entrances"
+            "description": "Engineering & Technology Main Entrance"
           },
           {
             "id": "entr_2",
@@ -161,7 +161,226 @@
             "speakable": true,
             "description": "Engineering & Technology Side Entrance"
           }
-
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.0639, -118.1700] },
+      "properties": {
+        "id": "salazar_hall",
+        "name": "Salazar Hall",
+        "kind": "building",
+        "speakable": true,
+        "center": [34.0639, -118.1700],
+        "entrances": [
+          {
+            "id": "salazar_main",
+            "coordinates": [34.0639, -118.1700],
+            "accessible": true,
+            "speakable": true,
+            "description": "Salazar Hall - Main Entrance"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.0667, -118.1690] },
+      "properties": {
+        "id": "administration",
+        "name": "Administration Building",
+        "kind": "building",
+        "speakable": true,
+        "center": [34.0667, -118.1690],
+        "entrances": [
+          {
+            "id": "admin_main",
+            "coordinates": [34.0667, -118.1690],
+            "accessible": true,
+            "speakable": true,
+            "description": "Administration Building - Main Entrance"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.068213, -118.168815] },
+      "properties": {
+        "id": "student_union",
+        "name": "Student Union",
+        "kind": "building",
+        "speakable": true,
+        "center": [34.068213, -118.168815],
+        "entrances": [
+          {
+            "id": "usu_main",
+            "coordinates": [34.068213, -118.168815],
+            "accessible": true,
+            "speakable": true,
+            "description": "Student Union - Main Entrance"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.0655, -118.1690] },
+      "properties": {
+        "id": "biological_sciences",
+        "name": "Biological Sciences Building",
+        "kind": "building",
+        "speakable": true,
+        "center": [34.0655, -118.1690],
+        "entrances": [
+          {
+            "id": "bio_main",
+            "coordinates": [34.0655, -118.1690],
+            "accessible": true,
+            "speakable": true,
+            "description": "Biological Sciences - Main Entrance"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.0653, -118.1680] },
+      "properties": {
+        "id": "physical_sciences",
+        "name": "Physical Sciences Building",
+        "kind": "building",
+        "speakable": true,
+        "center": [34.0653, -118.1680],
+        "entrances": [
+          {
+            "id": "ps_main",
+            "coordinates": [34.0653, -118.1680],
+            "accessible": true,
+            "speakable": true,
+            "description": "Physical Sciences - Main Entrance"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.0685, -118.1670] },
+      "properties": {
+        "id": "music",
+        "name": "Music Building",
+        "kind": "building",
+        "speakable": true,
+        "center": [34.0685, -118.1670],
+        "entrances": [
+          {
+            "id": "music_main",
+            "coordinates": [34.0685, -118.1670],
+            "accessible": true,
+            "speakable": true,
+            "description": "Music Building - Main Entrance"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.0665, -118.1680] },
+      "properties": {
+        "id": "physical_education",
+        "name": "Physical Education Building",
+        "kind": "building",
+        "speakable": true,
+        "center": [34.0665, -118.1680],
+        "entrances": [
+          {
+            "id": "pe_main",
+            "coordinates": [34.0665, -118.1680],
+            "accessible": true,
+            "speakable": true,
+            "description": "Physical Education - Main Entrance"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.06574, -118.16839] },
+      "properties": {
+        "id": "health_center",
+        "name": "Student Health Center",
+        "kind": "building",
+        "speakable": true,
+        "center": [34.06574, -118.16839],
+        "entrances": [
+          {
+            "id": "health_main",
+            "coordinates": [34.06574, -118.16839],
+            "accessible": true,
+            "speakable": true,
+            "description": "Student Health Center - Main Entrance"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.0642, -118.1690] },
+      "properties": {
+        "id": "simpson_tower",
+        "name": "Simpson Tower",
+        "kind": "building",
+        "speakable": true,
+        "center": [34.0642, -118.1690],
+        "entrances": [
+          {
+            "id": "simpson_main",
+            "coordinates": [34.0642, -118.1690],
+            "accessible": true,
+            "speakable": true,
+            "description": "Simpson Tower - Main Entrance"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.06943, -118.16881] },
+      "properties": {
+        "id": "luckman",
+        "name": "Luckman Fine Arts Complex",
+        "kind": "building",
+        "speakable": true,
+        "center": [34.06943, -118.16881],
+        "entrances": [
+          {
+            "id": "luckman_main",
+            "coordinates": [34.06943, -118.16881],
+            "accessible": true,
+            "speakable": true,
+            "description": "Luckman Fine Arts Complex - Main Entrance"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [34.0660, -118.1670] },
+      "properties": {
+        "id": "social_science",
+        "name": "Social Science Building",
+        "kind": "building",
+        "speakable": true,
+        "center": [34.0660, -118.1670],
+        "entrances": [
+          {
+            "id": "sos_main",
+            "coordinates": [34.0660, -118.1670],
+            "accessible": true,
+            "speakable": true,
+            "description": "Social Science Building - Main Entrance"
+          }
         ]
       }
     }

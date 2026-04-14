@@ -28,6 +28,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
   late final UiNavigationController _uiController;
 
   ll.LatLng? _destination;
+  final ValueNotifier<ll.LatLng?> _destinationNotifier = ValueNotifier(null);
   bool _isPreviewFetch = false;
 
   @override
@@ -47,7 +48,10 @@ class _NavigationScreenState extends State<NavigationScreen> {
     _locationController.addListener(_onLocationUpdate);
     _routingController.addListener(_onRoutingUpdate);
 
-    _initialize();
+    // Defer heavy init so the first frame renders immediately
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _initialize();
+    });
   }
 
   Future<void> _initialize() async {
@@ -114,7 +118,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
         final route = _routingController.currentRoute!;
         _guidanceController.startNavigation(route);
 
-        // Wire callback for subsequent step advances
         _guidanceController.onStepAdvanced = () {
           final step = _guidanceController.currentStep;
           final nextStep = _guidanceController.nextStep;
@@ -135,21 +138,13 @@ class _NavigationScreenState extends State<NavigationScreen> {
           );
         };
 
-        // Wire arrival callback
         _guidanceController.onArrival = () async {
-          // Let the screen linger on the "Arrived" step for 4 seconds
-          // so the user can read the banner and the TTS can finish speaking.
           await Future.delayed(const Duration(seconds: 4));
-
-          // Make sure the user didn't close the app during those 4 seconds
           if (!mounted) return;
-
-          // Gracefully shut down the route and reset the UI
           _stopNavigation(isArrival: true);
           _uiController.setState(NavigationUIState.idle);
         };
 
-        // Announce first step immediately
         if (route.steps.isNotEmpty) {
           final step = route.steps.first;
           final nextStep = route.steps.length > 1 ? route.steps[1] : null;
@@ -185,7 +180,8 @@ class _NavigationScreenState extends State<NavigationScreen> {
     if (entrance == null) return;
 
     final dest = ll.LatLng(entrance.latitude, entrance.longitude);
-    setState(() => _destination = dest);
+    _destination = dest;
+    _destinationNotifier.value = dest;
     _mapController.move(dest, 17.0);
 
     _uiController.setState(
@@ -270,9 +266,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
   void _stopNavigation({bool isArrival = false}) {
     _guidanceController.stopNavigation();
     _routingController.clearRoute();
-
-    // Only kill the audio if the user manually cancelled.
-    // If they successfully arrived, let the TTS finish speaking!
     if (!isArrival) {
       _navVoice.stop();
     }
@@ -321,9 +314,9 @@ class _NavigationScreenState extends State<NavigationScreen> {
 
   void _showSnackBar(String message, {Color? color}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: color),
+    );
   }
 
   @override
@@ -335,6 +328,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
     _guidanceController.dispose();
     _navVoice.dispose();
     _mapController.dispose();
+    _destinationNotifier.dispose();
     super.dispose();
   }
 
@@ -343,80 +337,85 @@ class _NavigationScreenState extends State<NavigationScreen> {
   @override
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.of(context).padding.top;
-    return Scaffold(
-      body: ListenableBuilder(
-        listenable: Listenable.merge([
-          _locationController,
-          _routingController,
-          _guidanceController,
-          _navVoice,
-        ]),
-        builder: (context, _) {
-          final position = _locationController.currentLocation;
-          final polyline = _routingController.currentRoute?.polyline ?? [];
-          final isNavigating = _guidanceController.isNavigating;
-          final currentStep = _guidanceController.currentStep;
-          final isRerouting = _routingController.isRerouting;
-          final isDestinationSelected =
-              _uiController.state == NavigationUIState.destinationSelected;
 
-          return GestureDetector(
-            onDoubleTap: () => _navVoice.announceCurrentHeading(),
-            child: Stack(
+    return Scaffold(
+      body: GestureDetector(
+        onDoubleTap: () => _navVoice.announceCurrentHeading(),
+        child: Stack(
+          children: [
+            // ── Map — position updated imperatively via mapController ──
+            FlutterMap(
+              mapController: _mapController,
+              options: const MapOptions(
+                initialCenter: ll.LatLng(34.067, -118.170),
+                initialZoom: 16.0,
+                interactionOptions: InteractionOptions(
+                  flags:
+                      InteractiveFlag.drag |
+                      InteractiveFlag.pinchZoom |
+                      InteractiveFlag.rotate,
+                ),
+              ),
               children: [
-                // ── Map ──────────────────────────────────────
-                FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(
-                    initialCenter:
-                        position ?? const ll.LatLng(34.067, -118.170),
-                    initialZoom: 16.0,
-                    interactionOptions: const InteractionOptions(
-                      flags:
-                          InteractiveFlag.drag |
-                          InteractiveFlag.pinchZoom |
-                          InteractiveFlag.rotate,
-                    ),
-                  ),
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.example.eagle_nav_app',
-                      maxZoom: 19.0,
-                      minZoom: 12.0,
-                    ),
-                    PolylineLayer(
-                      // FIX: Prevent lines from disappearing on zoom/pan
+                TileLayer(
+                  urlTemplate:
+                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.example.eagle_nav_app',
+                  maxZoom: 19.0,
+                  minZoom: 12.0,
+                ),
+
+                // Polyline: only rebuilds when route or navigation state changes
+                ListenableBuilder(
+                  listenable: Listenable.merge([
+                    _routingController,
+                    _guidanceController,
+                  ]),
+                  builder: (context, _) {
+                    final polyline =
+                        _routingController.currentRoute?.polyline ?? [];
+                    if (polyline.isEmpty) return const SizedBox.shrink();
+                    final isNavigating = _guidanceController.isNavigating;
+                    final isRerouting = _routingController.isRerouting;
+                    return PolylineLayer(
                       simplificationTolerance: 0.0,
                       polylines: [
-                        if (polyline.isNotEmpty)
-                          Polyline(
-                            // FIX: Spread operator forces the map to redraw updates
-                            points: [...polyline],
-                            strokeWidth: 40.0,
-                            color: Colors.blue.withOpacity(0.12),
-                            borderStrokeWidth: 1.5,
-                            borderColor: Colors.blue.withOpacity(0.25),
-                            strokeCap: StrokeCap.round,
-                            strokeJoin: StrokeJoin.round,
-                          ),
-                        if (polyline.isNotEmpty)
-                          Polyline(
-                            // FIX: Spread operator forces the map to redraw updates
-                            points: [...polyline],
-                            strokeWidth: 4,
-                            color: isNavigating
-                                ? Colors.blue
-                                : isRerouting
-                                ? Colors.orange
-                                : Colors.grey,
-                            strokeCap: StrokeCap.round,
-                            strokeJoin: StrokeJoin.round,
-                          ),
+                        Polyline(
+                          points: polyline,
+                          strokeWidth: 40.0,
+                          color: Colors.blue.withOpacity(0.12),
+                          borderStrokeWidth: 1.5,
+                          borderColor: Colors.blue.withOpacity(0.25),
+                          strokeCap: StrokeCap.round,
+                          strokeJoin: StrokeJoin.round,
+                        ),
+                        Polyline(
+                          points: polyline,
+                          strokeWidth: 4,
+                          color: isNavigating
+                              ? Colors.blue
+                              : isRerouting
+                              ? Colors.orange
+                              : Colors.grey,
+                          strokeCap: StrokeCap.round,
+                          strokeJoin: StrokeJoin.round,
+                        ),
                       ],
-                    ),
-                    MarkerLayer(
+                    );
+                  },
+                ),
+
+                // Markers: only rebuilds when location or destination changes
+                ListenableBuilder(
+                  listenable: Listenable.merge([
+                    _locationController,
+                    _destinationNotifier,
+                    _uiController,
+                  ]),
+                  builder: (context, _) {
+                    final position = _locationController.currentLocation;
+                    final destination = _destinationNotifier.value;
+                    return MarkerLayer(
                       markers: [
                         if (position != null)
                           Marker(
@@ -424,7 +423,8 @@ class _NavigationScreenState extends State<NavigationScreen> {
                             width: 60,
                             height: 60,
                             child: ValueListenableBuilder<double>(
-                              valueListenable: _navVoice.compassHeadingNotifier,
+                              valueListenable:
+                                  _navVoice.compassHeadingNotifier,
                               builder: (context, heading, _) {
                                 return PulsingLocationMarker(
                                   size: 20.0,
@@ -435,9 +435,9 @@ class _NavigationScreenState extends State<NavigationScreen> {
                               },
                             ),
                           ),
-                        if (_destination != null)
+                        if (destination != null)
                           Marker(
-                            point: _destination!,
+                            point: destination,
                             width: 120,
                             height: 60,
                             child: Column(
@@ -476,104 +476,140 @@ class _NavigationScreenState extends State<NavigationScreen> {
                             ),
                           ),
                       ],
-                    ),
-                  ],
+                    );
+                  },
                 ),
-
-                // ── Search bar ────────────────────────────────
-                if (!isNavigating)
-                  Positioned(
-                    top: topPadding + 16,
-                    left: 16,
-                    right: 16,
-                    child: BuildingSearchBar(
-                      onBuildingSelected: _onBuildingSelected,
-                    ),
-                  ),
-
-                // ── Recenter button (Using proven layout logic) ────────────
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                  right: 16, // Pinned to the right
-                  // Uses the exact same working math as your zoom buttons!
-                  bottom: (isNavigating || isDestinationSelected) ? 240 : 120,
-                  child: FloatingActionButton(
-                    heroTag: 'recenter_btn_safe',
-                    backgroundColor: Colors.white,
-                    onPressed: () {
-                      final userLocation = _locationController.currentLocation;
-                      if (userLocation != null) {
-                        _mapController.move(
-                          userLocation,
-                          _mapController.camera.zoom,
-                        );
-                        _mapController.rotate(
-                          _navVoice.compassHeadingNotifier.value,
-                        );
-                      }
-                    },
-                    child: const Icon(Icons.my_location, color: Colors.blue),
-                  ),
-                ),
-
-                // ── Zoom buttons ──────────────────────────────
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                  left: 16,
-                  bottom: (isNavigating || isDestinationSelected) ? 240 : 120,
-                  child: Column(
-                    children: [
-                      FloatingActionButton(
-                        heroTag: 'zoom_in',
-                        mini: true,
-                        backgroundColor: Colors.white,
-                        onPressed: _zoomIn,
-                        child: const Icon(Icons.add, color: Colors.black),
-                      ),
-                      const SizedBox(height: 10),
-                      FloatingActionButton(
-                        heroTag: 'zoom_out',
-                        mini: true,
-                        backgroundColor: Colors.white,
-                        onPressed: _zoomOut,
-                        child: const Icon(Icons.remove, color: Colors.black),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // ── Bottom panel ──────────────────────────────
-                _buildBottomPanel(),
-
-                // ── Turn-by-turn panel ────────────────────────
-                if (currentStep != null && isNavigating)
-                  Positioned(
-                    top: 76,
-                    left: 16,
-                    right: 16,
-                    child: _TurnByTurnPanel(
-                      instruction: _navVoice.lastDisplayText.isNotEmpty
-                          ? _navVoice.lastDisplayText
-                          : currentStep.instruction,
-                      distanceMeters: currentStep.distanceMeters,
-                      isRerouting: isRerouting,
-                    ),
-                  ),
-
-                // ── Rerouting banner ──────────────────────────
-                if (isRerouting)
-                  const Positioned(
-                    top: 76,
-                    left: 16,
-                    right: 16,
-                    child: _ReroutingBanner(),
-                  ),
               ],
             ),
-          );
-        },
+
+            // ── Navigation overlays — only rebuild on state changes ──
+            ListenableBuilder(
+              listenable: Listenable.merge([
+                _guidanceController,
+                _uiController,
+              ]),
+              builder: (context, _) {
+                final isNavigating = _guidanceController.isNavigating;
+                final isDestinationSelected =
+                    _uiController.state ==
+                    NavigationUIState.destinationSelected;
+                final currentStep = _guidanceController.currentStep;
+
+                return Stack(
+                  children: [
+                    // ── Search bar ────────────────────────────
+                    if (!isNavigating)
+                      Positioned(
+                        top: topPadding + 16,
+                        left: 16,
+                        right: 16,
+                        child: BuildingSearchBar(
+                          onBuildingSelected: _onBuildingSelected,
+                        ),
+                      ),
+
+                    // ── Recenter button ───────────────────────
+                    AnimatedPositioned(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                      right: 16,
+                      bottom:
+                          (isNavigating || isDestinationSelected) ? 240 : 120,
+                      child: FloatingActionButton(
+                        heroTag: 'recenter_btn_safe',
+                        backgroundColor: Colors.white,
+                        onPressed: () {
+                          final userLocation =
+                              _locationController.currentLocation;
+                          if (userLocation != null) {
+                            _mapController.move(
+                              userLocation,
+                              _mapController.camera.zoom,
+                            );
+                            _mapController.rotate(
+                              _navVoice.compassHeadingNotifier.value,
+                            );
+                          }
+                        },
+                        child: const Icon(
+                          Icons.my_location,
+                          color: Colors.blue,
+                        ),
+                      ),
+                    ),
+
+                    // ── Zoom buttons ──────────────────────────
+                    AnimatedPositioned(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                      left: 16,
+                      bottom:
+                          (isNavigating || isDestinationSelected) ? 240 : 120,
+                      child: Column(
+                        children: [
+                          FloatingActionButton(
+                            heroTag: 'zoom_in',
+                            mini: true,
+                            backgroundColor: Colors.white,
+                            onPressed: _zoomIn,
+                            child: const Icon(
+                              Icons.add,
+                              color: Colors.black,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          FloatingActionButton(
+                            heroTag: 'zoom_out',
+                            mini: true,
+                            backgroundColor: Colors.white,
+                            onPressed: _zoomOut,
+                            child: const Icon(
+                              Icons.remove,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // ── Turn-by-turn panel ────────────────────
+                    if (currentStep != null && isNavigating)
+                      Positioned(
+                        top: 76,
+                        left: 16,
+                        right: 16,
+                        child: ListenableBuilder(
+                          listenable: Listenable.merge([
+                            _navVoice,
+                            _routingController,
+                          ]),
+                          builder: (context, _) => _TurnByTurnPanel(
+                            instruction: _navVoice.lastDisplayText.isNotEmpty
+                                ? _navVoice.lastDisplayText
+                                : currentStep.instruction,
+                            distanceMeters: currentStep.distanceMeters,
+                            isRerouting: _routingController.isRerouting,
+                          ),
+                        ),
+                      ),
+
+                    // ── Rerouting banner ──────────────────────
+                    if (_routingController.isRerouting)
+                      const Positioned(
+                        top: 76,
+                        left: 16,
+                        right: 16,
+                        child: _ReroutingBanner(),
+                      ),
+                  ],
+                );
+              },
+            ),
+
+            // ── Bottom panel ──────────────────────────────────
+            _buildBottomPanel(),
+          ],
+        ),
       ),
     );
   }

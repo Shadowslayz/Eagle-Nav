@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
-import '../services/compass_service.dart';
 import '../utils/bearing_utils.dart';
 
 /// A single landmark result with distance and spoken relative direction.

@@ -82,7 +82,7 @@ class _CVisionObjectsScreenState extends State<CVisionObjectsScreen> {
 
     for (final r in results) {
       final name = r.className;
-      if (name == null || name.isEmpty) continue;
+      if (name.isEmpty) continue;
 
       if (_isPillarLike(name)) {
         hasPillar = true;
@@ -112,29 +112,35 @@ class _CVisionObjectsScreenState extends State<CVisionObjectsScreen> {
         title: const Text('Computer Vision (Objects)'),
         backgroundColor: const Color.fromARGB(255, 161, 133, 40),
         actions: [
-          IconButton(
-            tooltip: 'Segmentation',
-            icon: const Icon(Icons.texture),
-            onPressed: () async {
-              await _tts.stop();
-              if (!context.mounted) return;
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const CVisionSegmentationScreen()),
-              );
-            },
+          Semantics(
+            label: 'Switch to segmentation view',
+            button: true,
+            child: IconButton(
+              tooltip: 'Segmentation',
+              icon: const Icon(Icons.texture, semanticLabel: 'Segmentation'),
+              onPressed: () async {
+                await _tts.stop();
+                if (!context.mounted) return;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CVisionSegmentationScreen()),
+                );
+              },
+            ),
           ),
         ],
       ),
       body: Stack(
         children: [
-          YOLOView(
-            key: const ValueKey('yolo_detect_view'),
-            modelPath: modelPath,
-            task: YOLOTask.detect,
-            confidenceThreshold: 0.30,
-            showOverlays: true,
-            onResult: _handleResults,
+          SizedBox.expand(
+            child: YOLOView(
+              key: const ValueKey('yolo_detect_view'),
+              modelPath: modelPath,
+              task: YOLOTask.detect,
+              confidenceThreshold: 0.30,
+              showOverlays: true,
+              onResult: _handleResults,
+            ),
           ),
           Positioned(
             left: 16,
@@ -212,7 +218,7 @@ class _CVisionSegmentationScreenState extends State<CVisionSegmentationScreen> {
     bool sawStairs = false;
 
     for (final r in results) {
-      final name = r.className?.toLowerCase() ?? '';
+      final name = r.className.toLowerCase() ?? '';
       if (name.isEmpty) continue;
 
       if (name.contains('wall')) sawWall = true;

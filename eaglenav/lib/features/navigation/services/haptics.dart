@@ -6,8 +6,9 @@ enum HapticsEvent { start, turnLeft, turnRight, continueAhead, arrive, hazard }
 class Haptics {
   static DateTime? _last;
   static Future<void> fire(HapticsEvent e) async {
-    if (_last != null && DateTime.now().difference(_last!).inMilliseconds < 600)
+    if (_last != null && DateTime.now().difference(_last!).inMilliseconds < 600) {
       return;
+    }
     _last = DateTime.now();
     final has = await Vibration.hasVibrator();
     if (!has) return HapticFeedback.selectionClick();

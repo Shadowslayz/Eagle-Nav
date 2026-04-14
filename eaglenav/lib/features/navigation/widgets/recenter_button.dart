@@ -1,7 +1,5 @@
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 
 class RecenterButton extends StatefulWidget {
   final VoidCallback onPressed;
@@ -44,10 +42,14 @@ class _RecenterButtonState extends State<RecenterButton>
       right: 24,
       child: ScaleTransition(
         scale: _pulseAnimation,
-        child: FloatingActionButton(
-          onPressed: widget.onPressed,
-          backgroundColor: Colors.blueAccent,
-          child: const Icon(Icons.my_location),
+        child: Semantics(
+          label: 'Recenter map to your current location',
+          button: true,
+          child: FloatingActionButton(
+            onPressed: widget.onPressed,
+            backgroundColor: Colors.blueAccent,
+            child: const Icon(Icons.my_location, semanticLabel: 'My location'),
+          ),
         ),
       ),
     );

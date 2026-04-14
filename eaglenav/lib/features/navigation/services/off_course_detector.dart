@@ -1,5 +1,4 @@
 import 'package:eaglenav/features/navigation/services/tts_manager.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import '../utils/bearing_utils.dart';
 
 /// ─── OffCourseDetector ───────────────────────────────────────────────────────

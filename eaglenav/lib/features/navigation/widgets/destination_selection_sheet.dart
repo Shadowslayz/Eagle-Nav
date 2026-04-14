@@ -10,7 +10,7 @@ class DestinationSelectionSheet extends StatelessWidget {
   final VoidCallback onCancel;
   final VoidCallback onStart;
 
-  const DestinationSelectionSheet({
+  const DestinationSelectionSheet({super.key, 
     // Data to receive
     required this.destinationName,
     required this.onLoad,

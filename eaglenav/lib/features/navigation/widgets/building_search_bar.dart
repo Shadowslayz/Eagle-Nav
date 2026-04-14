@@ -1,12 +1,5 @@
-/* A search bar widget for finding and selecting campus buildings.
-/
-/ Queries [BuildingSearchService] on each keystroke and displays a live
-/ dropdown of matching results by building name or ID. Selecting a result
-/ fills the search field, dismisses the dropdown, and fires the
-/ [onBuildingSelected] callback. Includes a mic button placeholder for
-/ future voice search support. */
-
 import 'package:flutter/material.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 import '../models/building_model.dart';
 import '../services/building_search_service.dart';
 
@@ -22,28 +15,28 @@ class BuildingSearchBar extends StatefulWidget {
 class _BuildingSearchBarState extends State<BuildingSearchBar> {
   final BuildingSearchService _searchService = BuildingSearchService();
   final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+  final SpeechToText _speech = SpeechToText();
+
   List<Building> _suggestions = [];
   bool _isLoading = false;
-  final FocusNode _focusNode = FocusNode();
+  bool _isListening = false;
 
   @override
   void dispose() {
     _controller.dispose();
     _focusNode.dispose();
+    _speech.stop();
     super.dispose();
   }
 
   Future<void> _performSearch(String query) async {
     if (query.isEmpty) {
-      setState(() {
-        _suggestions = [];
-      });
+      setState(() => _suggestions = []);
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
       final results = await _searchService.searchBuildings(query);
@@ -60,32 +53,47 @@ class _BuildingSearchBarState extends State<BuildingSearchBar> {
     }
   }
 
+  Future<void> _startListening() async {
+    final available = await _speech.initialize(
+      onError: (_) => setState(() => _isListening = false),
+    );
+
+    if (!available) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Speech recognition not available')),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isListening = true);
+
+    _speech.listen(
+      onResult: (result) {
+        final text = result.recognizedWords;
+        _controller.text = text;
+        _performSearch(text);
+        if (result.finalResult) {
+          setState(() => _isListening = false);
+        }
+      },
+      listenFor: const Duration(seconds: 10),
+      pauseFor: const Duration(seconds: 2),
+      localeId: 'en_US',
+    );
+  }
+
+  Future<void> _stopListening() async {
+    await _speech.stop();
+    setState(() => _isListening = false);
+  }
+
   void _onBuildingSelected(Building building) {
     _controller.text = building.name;
     _focusNode.unfocus();
-    setState(() {
-      _suggestions = [];
-    });
-
-    // Call the callback if provided
+    setState(() => _suggestions = []);
     widget.onBuildingSelected?.call(building);
-
-    // Show selected building info
-    /* if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Selected: ${building.name}'),
-          action: SnackBarAction(
-            label: 'Navigate',
-            onPressed: () {
-              debugPrint(
-                'Navigate to: ${building.name} at (${building.latitude}, ${building.longitude})',
-              );
-            },
-          ),
-        ),
-      );
-    } */
   }
 
   @override
@@ -108,25 +116,31 @@ class _BuildingSearchBarState extends State<BuildingSearchBar> {
           ),
           child: Row(
             children: [
-              Padding(
-                padding: const EdgeInsets.only(right: 8.0),
-                child: Image.asset(
-                  'assets/images/DarkSimplifiedEagleIcon.png',
-                  height: 28,
-                  width: 28,
+              Semantics(
+                label: 'Eagle Nav logo',
+                image: true,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: Image.asset(
+                    'assets/images/DarkSimplifiedEagleIcon.png',
+                    height: 28,
+                    width: 28,
+                  ),
                 ),
               ),
               Expanded(
-                child: TextField(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  decoration: const InputDecoration(
-                    hintText: 'Search destination...',
-                    border: InputBorder.none,
+                child: Semantics(
+                  label: 'Search destination',
+                  textField: true,
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    decoration: const InputDecoration(
+                      hintText: 'Search destination...',
+                      border: InputBorder.none,
+                    ),
+                    onChanged: _performSearch,
                   ),
-                  onChanged: (query) {
-                    _performSearch(query);
-                  },
                 ),
               ),
               if (_isLoading)
@@ -139,13 +153,17 @@ class _BuildingSearchBarState extends State<BuildingSearchBar> {
                   ),
                 )
               else
-                IconButton(
-                  icon: const Icon(Icons.mic, color: Colors.amber),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Voice search tapped")),
-                    );
-                  },
+                Semantics(
+                  label: _isListening ? 'Stop voice search' : 'Voice search',
+                  button: true,
+                  child: IconButton(
+                    icon: Icon(
+                      _isListening ? Icons.mic : Icons.mic_none,
+                      color: _isListening ? Colors.red : Colors.amber,
+                      semanticLabel: _isListening ? 'Stop listening' : 'Voice search',
+                    ),
+                    onPressed: _isListening ? _stopListening : _startListening,
+                  ),
                 ),
             ],
           ),
@@ -171,14 +189,18 @@ class _BuildingSearchBarState extends State<BuildingSearchBar> {
               itemCount: _suggestions.length,
               itemBuilder: (context, index) {
                 final building = _suggestions[index];
-                return ListTile(
-                  leading: const Icon(Icons.location_on, color: Colors.amber),
-                  title: Text(building.name),
-                  subtitle: Text(
-                    '${building.entrances.length} entrance${building.entrances.length != 1 ? 's' : ''}',
-                    style: const TextStyle(fontSize: 12),
+                return Semantics(
+                  label: '${building.name}, ${building.entrances.length} entrance${building.entrances.length != 1 ? 's' : ''}. Tap to navigate.',
+                  button: true,
+                  child: ListTile(
+                    leading: const Icon(Icons.location_on, color: Colors.amber, semanticLabel: 'Location'),
+                    title: Text(building.name),
+                    subtitle: Text(
+                      '${building.entrances.length} entrance${building.entrances.length != 1 ? 's' : ''}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    onTap: () => _onBuildingSelected(building),
                   ),
-                  onTap: () => _onBuildingSelected(building),
                 );
               },
             ),

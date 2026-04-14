@@ -129,9 +129,9 @@ class GuidanceController extends ChangeNotifier {
 
     for (int i = _currentStepIndex; i < lookAheadLimit; i++) {
       final step = steps[i];
-      final distance = _calculateDistance(position, step.endLocation);
       final isLastStep = i == steps.length - 1;
       final distanceToStepEnd = _calculateDistance(position, step.endLocation);
+      final distance = distanceToStepEnd;
 
       // If we are on the last or second-to-last step and close enough...
       if (i >= steps.length - 2 && distanceToStepEnd <= stepCompleteMeters) {

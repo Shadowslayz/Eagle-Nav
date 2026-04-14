@@ -47,7 +47,7 @@ class _ProfileTabState extends State<ProfileTab> {
           const SizedBox(height: 10),
 
           DropdownButtonFormField<String>(
-            value: colorBlindMode,
+            initialValue: colorBlindMode,
             decoration: const InputDecoration(
               labelText: 'Color Blind Mode',
               border: OutlineInputBorder(),

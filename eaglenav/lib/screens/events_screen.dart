@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -230,8 +231,11 @@ class EventsScreen extends StatefulWidget {
   State<EventsScreen> createState() => _EventsScreenState();
 }
 
-class _EventsScreenState extends State<EventsScreen> {
+class _EventsScreenState extends State<EventsScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   final ScrollController _scrollController = ScrollController();
+  Timer? _scrollDebounce;
   final List<Map<String, String>> _events = [];
   final List<Map<String, String>> _bookmarkedEvents = [];
   bool _isLoading = false;
@@ -242,17 +246,28 @@ class _EventsScreenState extends State<EventsScreen> {
   @override
   void initState() {
     super.initState();
-    initEventNotifications(); 
-    _loadBookmarks().then((_) => _loadEvents());
+    initEventNotifications();
+    _loadBookmarks().then((_) async {
+      await _loadCachedEvents();
+      _loadEvents();
+    });
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
               _scrollController.position.maxScrollExtent - 200 &&
           !_isLoading &&
           _hasMore &&
           _selectedFilter != 'bookmarked') {
-        _loadEvents();
+        _scrollDebounce?.cancel();
+        _scrollDebounce = Timer(const Duration(milliseconds: 300), _loadEvents);
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollDebounce?.cancel();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   // ✅ Load bookmarks safely from SharedPreferences
@@ -295,6 +310,28 @@ class _EventsScreenState extends State<EventsScreen> {
 
     final encoded = unique.map((e) => json.encode(e)).toList();
     await prefs.setStringList('bookmarked_events', encoded);
+  }
+
+  Future<void> _loadCachedEvents() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cached = prefs.getStringList('cached_events') ?? [];
+    if (cached.isEmpty) return;
+    final decoded = <Map<String, String>>[];
+    for (var s in cached) {
+      try {
+        final map = Map<String, dynamic>.from(json.decode(s));
+        decoded.add(map.map((k, v) => MapEntry(k, v.toString())));
+      } catch (_) {}
+    }
+    if (decoded.isNotEmpty && mounted) {
+      setState(() => _events.addAll(decoded));
+    }
+  }
+
+  Future<void> _cacheEvents() async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = _events.map((e) => json.encode(e)).toList();
+    await prefs.setStringList('cached_events', encoded);
   }
 
   // 🔹 Load events from website
@@ -351,6 +388,7 @@ class _EventsScreenState extends State<EventsScreen> {
           }
         }
         _page++;
+        _cacheEvents();
       }
     } catch (e) {
       debugPrint("Scrape error: $e");
@@ -456,6 +494,7 @@ class _EventsScreenState extends State<EventsScreen> {
   // 🔹 Build UI
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final eventsToShow = _filteredEvents();
 
     return Scaffold(

@@ -1,6 +1,5 @@
 import 'dart:ui';
 import 'package:eaglenav/features/navigation/utils/bearing_utils.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import 'compass_service.dart';
 import '../services/tts_manager.dart';
 
@@ -16,7 +15,7 @@ import '../services/tts_manager.dart';
 class OrientationCoach {
   final CompassService _compass;
   //final FlutterTts _tts;
-  TtsManager _ttsManager;
+  final TtsManager _ttsManager;
   final bool Function() isBusy;
 
   bool _active = false;

@@ -16,16 +16,22 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _selectedIndex = 0;
 
-  late final List<Widget> _pages = [
-    const NavigationScreen(), 
-    const FavoritesTab(),
-    const EventsScreen(),
-    const ProfileTab(),
-    const EmergencyTab(),
-    const cv_screen(),
+  static const List<Widget> _pages = [
+    NavigationScreen(),
+    FavoritesTab(),
+    EventsScreen(),
+    ProfileTab(),
+    EmergencyTab(),
   ];
 
   void _onItemTapped(int index) {
+    if (index == 5) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const cv_screen()),
+      );
+      return;
+    }
     setState(() {
       _selectedIndex = index;
     });
@@ -34,10 +40,7 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _pages,
-      ),
+      body: _pages[_selectedIndex],
         bottomNavigationBar: NavigationBar(
           selectedIndex: _selectedIndex,
           onDestinationSelected: _onItemTapped,

@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EagleNav — Cal State LA Campus Navigation</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --gold: #C9A227;
+      --dark: #1A1A1A;
+      --gray: #F4F4F4;
+      --text: #222;
+      --muted: #666;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--text);
+      background: #fff;
+      line-height: 1.6;
+    }
+
+    /* ── Nav ── */
+    header {
+      background: var(--dark);
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header .logo {
+      width: 36px;
+      height: 36px;
+      background: var(--gold);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+    header h1 {
+      color: #fff;
+      font-size: 1.3rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    header span {
+      color: var(--gold);
+      font-size: 0.85rem;
+      margin-left: auto;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      background: var(--dark);
+      color: #fff;
+      text-align: center;
+      padding: 80px 24px 90px;
+    }
+    .hero .badge {
+      display: inline-block;
+      background: var(--gold);
+      color: var(--dark);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 4px 14px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+    }
+    .hero h2 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 800;
+      line-height: 1.15;
+      margin-bottom: 18px;
+    }
+    .hero h2 span { color: var(--gold); }
+    .hero p {
+      font-size: 1.1rem;
+      color: rgba(255,255,255,0.65);
+      max-width: 560px;
+      margin: 0 auto 36px;
+    }
+
+    /* ── Features ── */
+    .features {
+      background: var(--gray);
+      padding: 72px 24px;
+      text-align: center;
+    }
+    .features h3 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin-bottom: 48px;
+    }
+    .features h3 span { color: var(--gold); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 24px;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 32px 24px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      text-align: left;
+    }
+    .card .icon {
+      font-size: 2rem;
+      margin-bottom: 14px;
+    }
+    .card h4 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+    .card p  { font-size: 0.9rem; color: var(--muted); }
+
+    /* ── Support ── */
+    .support {
+      padding: 72px 24px;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    .support h3 { font-size: 1.8rem; font-weight: 700; margin-bottom: 8px; }
+    .support h3 span { color: var(--gold); }
+    .support .sub { color: var(--muted); margin-bottom: 36px; }
+    .support-item {
+      border: 1px solid #E8E8E8;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+    .support-item h5 { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+    .support-item p  { font-size: 0.9rem; color: var(--muted); }
+    .support-item a  { color: var(--gold); text-decoration: none; font-weight: 600; }
+
+    /* ── Privacy ── */
+    .privacy {
+      background: var(--gray);
+      padding: 72px 24px;
+    }
+    .privacy-inner {
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    .privacy h3 { font-size: 1.8rem; font-weight: 700; margin-bottom: 8px; }
+    .privacy h3 span { color: var(--gold); }
+    .privacy .sub { color: var(--muted); margin-bottom: 36px; }
+    .privacy h4 { font-size: 1rem; font-weight: 700; margin: 28px 0 8px; }
+    .privacy p, .privacy li { font-size: 0.92rem; color: #444; margin-bottom: 8px; }
+    .privacy ul { padding-left: 20px; }
+
+    /* ── Footer ── */
+    footer {
+      background: var(--dark);
+      color: rgba(255,255,255,0.45);
+      text-align: center;
+      padding: 28px 24px;
+      font-size: 0.85rem;
+    }
+    footer strong { color: var(--gold); }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">🦅</div>
+  <h1>EagleNav</h1>
+  <span>Cal State LA</span>
+</header>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="badge">Now on iOS</div>
+  <h2>Navigate campus<br/><span>without barriers.</span></h2>
+  <p>EagleNav gives visually impaired students turn-by-turn voice guidance, real-time obstacle detection, and campus event updates — all built for Cal State LA.</p>
+</section>
+
+<!-- Features -->
+<section class="features">
+  <h3>Built for <span>accessibility</span></h3>
+  <div class="grid">
+    <div class="card">
+      <div class="icon">🗺️</div>
+      <h4>Turn-by-Turn Navigation</h4>
+      <p>Voice-guided routing between campus buildings using accessible paths and ramps.</p>
+    </div>
+    <div class="card">
+      <div class="icon">📡</div>
+      <h4>Obstacle Scan</h4>
+      <p>Point your camera to detect walls, people, and hazards — with spatial audio and haptic feedback.</p>
+    </div>
+    <div class="card">
+      <div class="icon">📅</div>
+      <h4>Campus Events</h4>
+      <p>Browse and bookmark CSULA events with day-before reminders so you never miss out.</p>
+    </div>
+    <div class="card">
+      <div class="icon">🚨</div>
+      <h4>Emergency Access</h4>
+      <p>One-tap access to Campus Police, the Health Center, and the Crisis Line.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Support -->
+<section class="support">
+  <h3>Support <span>&amp; Contact</span></h3>
+  <p class="sub">Having trouble with EagleNav? We're here to help.</p>
+
+  <div class="support-item">
+    <h5>General Support</h5>
+    <p>Email us at <a href="mailto:floresisidoro30@gmail.com">floresisidoro30@gmail.com</a> and we'll get back to you as soon as possible.</p>
+  </div>
+
+  <div class="support-item">
+    <h5>Permissions &amp; Location</h5>
+    <p>EagleNav requires Location, Camera, Microphone, and Speech Recognition access. You can manage these anytime in <strong>Settings → EagleNav</strong> on your iPhone.</p>
+  </div>
+
+  <div class="support-item">
+    <h5>Obstacle Scan Not Working?</h5>
+    <p>Make sure Camera and Microphone permissions are enabled. The Scan button is available on the map screen — tap it to activate.</p>
+  </div>
+
+  <div class="support-item">
+    <h5>Navigation Issues</h5>
+    <p>EagleNav routing works best on the Cal State LA campus. Ensure Location is set to <strong>"While Using the App"</strong> or <strong>"Always"</strong> for best results.</p>
+  </div>
+</section>
+
+<!-- Privacy Policy -->
+<section class="privacy" id="privacy">
+  <div class="privacy-inner">
+    <h3>Privacy <span>Policy</span></h3>
+    <p class="sub">Last updated: April 2026</p>
+
+    <p>EagleNav ("we", "our", or "us") is committed to protecting your privacy. This policy explains what information we collect, how we use it, and your rights.</p>
+
+    <h4>Information We Collect</h4>
+    <ul>
+      <li><strong>Location data:</strong> Used in real time to provide turn-by-turn navigation. We do not store or transmit your location to any server.</li>
+      <li><strong>Camera:</strong> Used only for on-device obstacle detection. Video frames are processed locally and never stored or uploaded.</li>
+      <li><strong>Microphone &amp; Speech Recognition:</strong> Used only for voice search. Recognized text is used locally to search campus buildings.</li>
+      <li><strong>Bookmarks &amp; preferences:</strong> Stored locally on your device using standard iOS storage. Never transmitted externally.</li>
+    </ul>
+
+    <h4>How We Use Your Information</h4>
+    <p>All data collected by EagleNav is processed entirely on your device. We do not collect, transmit, sell, or share any personal data with third parties.</p>
+
+    <h4>Third-Party Services</h4>
+    <p>EagleNav uses OpenStreetMap tile data for map rendering. Map tiles are fetched from public OpenStreetMap servers. Please refer to the <a href="https://wiki.openstreetmap.org/wiki/Privacy_Policy" style="color:var(--gold);">OpenStreetMap Privacy Policy</a> for details.</p>
+
+    <h4>Data Retention</h4>
+    <p>No personal data is retained by EagleNav beyond your current session. Bookmarks and settings are stored locally and can be cleared by deleting the app.</p>
+
+    <h4>Children's Privacy</h4>
+    <p>EagleNav is intended for college-age users and does not knowingly collect information from children under 13.</p>
+
+    <h4>Contact</h4>
+    <p>For privacy-related questions, contact us at <a href="mailto:floresisidoro30@gmail.com" style="color:var(--gold);">floresisidoro30@gmail.com</a>.</p>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <p>&copy; 2026 <strong>EagleNav</strong> — Cal State LA Senior Design Project</p>
+</footer>
+
+</body>
+</html>

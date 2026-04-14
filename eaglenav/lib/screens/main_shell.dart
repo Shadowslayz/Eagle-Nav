@@ -4,7 +4,6 @@ import 'favorites_tab.dart';
 import 'events_screen.dart';
 import 'profile_tab.dart';
 import 'emergency_tab.dart';
-import 'cv_screen.dart'; // this is where CVisionScreen is
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -25,13 +24,6 @@ class _MainShellState extends State<MainShell> {
   ];
 
   void _onItemTapped(int index) {
-    if (index == 5) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const cv_screen()),
-      );
-      return;
-    }
     setState(() {
       _selectedIndex = index;
     });
@@ -85,11 +77,6 @@ class _MainShellState extends State<MainShell> {
               icon: Icon(Icons.shield_outlined, color: Colors.white54),
               selectedIcon: Icon(Icons.shield, color: Colors.black),
               label: 'Emergency',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.visibility_outlined, color: Colors.white54),
-              selectedIcon: Icon(Icons.visibility, color: Colors.black),
-              label: 'CV',
             ),
           ],
         ),

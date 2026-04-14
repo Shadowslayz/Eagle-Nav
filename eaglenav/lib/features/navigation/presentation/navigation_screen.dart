@@ -11,6 +11,7 @@ import '../services/location_service.dart';
 import '../widgets/building_search_bar.dart';
 import '../widgets/pulsing_location_marker.dart';
 import '../widgets/destination_selection_sheet.dart';
+import '../widgets/scan_overlay.dart';
 
 class NavigationScreen extends StatefulWidget {
   const NavigationScreen({super.key});
@@ -30,6 +31,8 @@ class _NavigationScreenState extends State<NavigationScreen> {
   ll.LatLng? _destination;
   final ValueNotifier<ll.LatLng?> _destinationNotifier = ValueNotifier(null);
   bool _isPreviewFetch = false;
+  bool _scanActive = false;
+  bool _scanTipShown = false;
 
   @override
   void initState() {
@@ -189,6 +192,34 @@ class _NavigationScreenState extends State<NavigationScreen> {
       destination: destination,
     );
     _fetchPreviewRoute();
+
+    // One-time scan tip
+    if (!_scanTipShown) {
+      _scanTipShown = true;
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.radar, color: Color(0xFFC9A227), size: 18),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Tap Scan when entering a building to detect obstacles.',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF1A1A1A),
+            duration: const Duration(seconds: 4),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      });
+    }
   }
 
   Future<void> _fetchPreviewRoute() async {
@@ -572,6 +603,30 @@ class _NavigationScreenState extends State<NavigationScreen> {
                       ),
                     ),
 
+                    // ── Scan FAB ──────────────────────────────
+                    Positioned(
+                      bottom: (isNavigating || isDestinationSelected) ? 240 : 100,
+                      right: 80,
+                      child: Semantics(
+                        label: 'Obstacle scan',
+                        button: true,
+                        child: FloatingActionButton.extended(
+                          heroTag: 'scan_btn',
+                          backgroundColor: const Color(0xFF1A1A1A),
+                          elevation: 4,
+                          icon: const Icon(Icons.radar, color: Color(0xFFC9A227)),
+                          label: const Text(
+                            'Scan',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          onPressed: () => setState(() => _scanActive = true),
+                        ),
+                      ),
+                    ),
+
                     // ── Turn-by-turn panel ────────────────────
                     if (currentStep != null && isNavigating)
                       Positioned(
@@ -608,6 +663,14 @@ class _NavigationScreenState extends State<NavigationScreen> {
 
             // ── Bottom panel ──────────────────────────────────
             _buildBottomPanel(),
+
+            // ── Scan overlay ───────────────────────────────────
+            if (_scanActive)
+              Positioned.fill(
+                child: ScanOverlay(
+                  onDismiss: () => setState(() => _scanActive = false),
+                ),
+              ),
           ],
         ),
       ),

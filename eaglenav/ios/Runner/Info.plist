@@ -28,14 +28,16 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>This app requires camera access for live object detection.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>EagleNav needs your location in the background to continue navigation.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>EagleNav needs your location to provide turn-by-turn campus navigation.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>EagleNav needs your location to provide turn-by-turn navigation.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>EagleNav needs microphone access for voice search.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>EagleNav uses speech recognition to search for buildings by voice.</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>EagleNav needs your location in the background to continue navigation.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>EagleNav needs your location to provide turn-by-turn navigation.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

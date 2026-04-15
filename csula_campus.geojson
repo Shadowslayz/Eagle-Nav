@@ -1,0 +1,25 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [-118.1725, 34.0625],
+              [-118.1725, 34.0710],
+              [-118.1645, 34.0710],
+              [-118.1645, 34.0625],
+              [-118.1725, 34.0625]
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "name": "Cal State LA Campus"
+      }
+    }
+  ]
+}

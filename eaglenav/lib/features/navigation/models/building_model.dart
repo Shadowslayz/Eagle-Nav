@@ -5,6 +5,7 @@
 /// The [mainEntrance] getter prioritizes accessible entrances. [BuildingEntrance]
 /// represents a single entry point with coordinates, accessibility info, and
 /// a human-readable description. */
+import 'package:latlong2/latlong.dart' as ll;
 
 class Building {
   final String id;
@@ -46,6 +47,32 @@ class Building {
       longitude: (coordinates[1] as num).toDouble(),
       entrances: entrances,
     );
+  }
+
+  /// Returns the entrance closest to [userPosition].
+  /// Falls back to mainEntrance if no position is available.
+  BuildingEntrance? nearestEntrance(double userLat, double userLon) {
+    if (entrances.isEmpty) return null;
+
+    const distance = ll.Distance();
+    final userPos = ll.LatLng(userLat, userLon);
+
+    BuildingEntrance? nearest;
+    double minDist = double.infinity;
+
+    for (final entrance in entrances) {
+      final d = distance.as(
+        ll.LengthUnit.Meter,
+        userPos,
+        ll.LatLng(entrance.latitude, entrance.longitude),
+      );
+      if (d < minDist) {
+        minDist = d;
+        nearest = entrance;
+      }
+    }
+
+    return nearest ?? mainEntrance;
   }
 
   // Get the main entrance (first accessible one, or first one)

@@ -180,8 +180,29 @@ class _NavigationScreenState extends State<NavigationScreen> {
 
   // ── User actions ──────────────────────────────────────────
 
-  void _onBuildingSelected(destination) {
+  /*   void _onBuildingSelected(destination) {
     final entrance = destination.mainEntrance;
+    if (entrance == null) return;
+
+    final dest = ll.LatLng(entrance.latitude, entrance.longitude);
+    setState(() => _destination = dest);
+    _mapController.move(dest, 17.0);
+
+    _uiController.setState(
+      NavigationUIState.destinationSelected,
+      destination: destination,
+    );
+    _fetchPreviewRoute();
+  } */
+
+  void _onBuildingSelected(destination) {
+    final position = _locationController.currentLocation;
+
+    // Use nearest entrance if we have a GPS fix, otherwise fall back to main
+    final entrance = position != null
+        ? destination.nearestEntrance(position.latitude, position.longitude)
+        : destination.mainEntrance;
+
     if (entrance == null) return;
 
     final dest = ll.LatLng(entrance.latitude, entrance.longitude);

@@ -31,6 +31,7 @@ class YoloTfliteDetector(
     assetManager: AssetManager,
     modelAssetPath: String = "yolo11n.tflite",
     private val labels: List<String> = CocoLabels.LABELS,
+    private val numClasses: Int = -1, // -1 = auto-detect from output shape
 ) : AutoCloseable {
 
     data class Detection(
@@ -120,6 +121,12 @@ class YoloTfliteDetector(
     private val outputBuffer: ByteBuffer
     private val outputFloats: FloatArray
 
+    // Multi-output support: seg models have 2 outputs (boxes + masks).
+    // We only need output[0] (boxes). We allocate a dummy buffer for output[1]
+    // so runForMultipleInputsOutputs doesn't crash.
+    private val outputCount: Int = interpreter.outputTensorCount
+    private val extraOutputBuffers: Array<ByteBuffer>
+
     var confidenceThreshold: Float = 0.25f
     var iouThreshold: Float = 0.5f
     var maxDetections: Int = 25
@@ -154,6 +161,12 @@ class YoloTfliteDetector(
         }
 
         rgbRowCache = Array(inputHeight) { IntArray(inputWidth * 3) }
+
+        // Allocate dummy buffers for extra outputs (e.g. mask prototypes in seg models).
+        extraOutputBuffers = Array(maxOf(0, outputCount - 1)) { i ->
+            val bytes = interpreter.getOutputTensor(i + 1).numBytes()
+            ByteBuffer.allocateDirect(bytes).order(ByteOrder.nativeOrder())
+        }
     }
 
     fun detect(image: Image, rotationDegrees: Int = 0): List<Detection> {
@@ -182,7 +195,18 @@ class YoloTfliteDetector(
         try {
             inputBuffer.rewind()
             outputBuffer.rewind()
-            interpreter.run(inputBuffer, outputBuffer)
+            if (outputCount <= 1) {
+                interpreter.run(inputBuffer, outputBuffer)
+            } else {
+                // Seg models have multiple outputs. We only care about output[0].
+                val outputMap = HashMap<Int, Any>(outputCount)
+                outputMap[0] = outputBuffer
+                for (i in extraOutputBuffers.indices) {
+                    extraOutputBuffers[i].rewind()
+                    outputMap[i + 1] = extraOutputBuffers[i]
+                }
+                interpreter.runForMultipleInputsOutputs(arrayOf(inputBuffer), outputMap)
+            }
         } catch (t: Throwable) {
             Log.e(TAG, "TFLite run failed", t)
             return emptyList()
@@ -465,7 +489,9 @@ class YoloTfliteDetector(
         val featuresFirst = (d1 == features)
         if (features < 6) return emptyList()
 
-        val numClasses = features - 4
+        // For seg models, features = 4 + numClasses + 32 (mask coefficients).
+        // We only want to scan the actual class scores, not the mask coefficients.
+        val effectiveNumClasses = if (numClasses > 0) numClasses else (features - 4)
         val detections = ArrayList<Detection>(512)
 
         fun getFeat(box: Int, feat: Int): Float {
@@ -476,7 +502,7 @@ class YoloTfliteDetector(
         for (b in 0 until boxes) {
             var bestScore = 0f
             var bestClass = -1
-            for (c in 0 until numClasses) {
+            for (c in 0 until effectiveNumClasses) {
                 val s = getFeat(b, 4 + c)
                 if (s > bestScore) {
                     bestScore = s

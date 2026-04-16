@@ -101,7 +101,6 @@ class ArCoreMeasurePlatformView(
       }
 
       "resume" -> {
-        // Explicit resume hook from Flutter (optional). Safe to call multiple times.
         try {
           glSurfaceView.onResume()
         } catch (_: Throwable) {
@@ -112,7 +111,6 @@ class ArCoreMeasurePlatformView(
       }
 
       "pause" -> {
-        // Explicit pause hook from Flutter (optional). Safe to call multiple times.
         try {
           glSurfaceView.onPause()
         } catch (_: Throwable) {
@@ -148,13 +146,11 @@ class ArCoreMeasurePlatformView(
           return
         }
 
-        // Run depth + math on the GL thread (ARCore session is updated there).
         glSurfaceView.queueEvent {
           val measurement = renderer.computeMeasurements(
             rect = RectF(left, top, right, bottom),
           )
 
-          // Return to platform thread.
           root.post {
             if (measurement == null) {
               result.success(null)
@@ -162,6 +158,77 @@ class ArCoreMeasurePlatformView(
               result.success(measurement.toMap())
             }
           }
+        }
+      }
+
+      // ── NEW: batch measurements for segmentation / multiple detections ──
+      "getMeasurementsForBoxes" -> {
+        val args = call.arguments as? Map<*, *>
+        if (args == null) {
+          result.error("bad_args", "Expected map arguments", null)
+          return
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        val boxes = args["boxes"] as? List<Map<String, Any?>>
+        if (boxes == null) {
+          result.error("bad_args", "Expected 'boxes' to be a list of rect maps", null)
+          return
+        }
+
+        if (ensureSessionIfPossible() == null) {
+          result.error(
+            "arcore_unavailable",
+            "ARCore is unavailable or not installed (or camera permission missing)",
+            null,
+          )
+          return
+        }
+
+        // Parse each rect with an optional id for Flutter-side matching.
+        data class Request(
+          val id: String?,
+          val rect: RectF,
+        )
+
+        val requests = ArrayList<Request>(boxes.size)
+        for ((index, box) in boxes.withIndex()) {
+          val left = (box["left"] as? Number)?.toFloat()
+          val top = (box["top"] as? Number)?.toFloat()
+          val right = (box["right"] as? Number)?.toFloat()
+          val bottom = (box["bottom"] as? Number)?.toFloat()
+          if (left == null || top == null || right == null || bottom == null) continue
+
+          val id = box["id"]?.toString() ?: index.toString()
+          requests.add(Request(id = id, rect = RectF(left, top, right, bottom)))
+        }
+
+        if (requests.isEmpty()) {
+          result.success(emptyList<Map<String, Any>>())
+          return
+        }
+
+        glSurfaceView.queueEvent {
+          val out = ArrayList<Map<String, Any?>>(requests.size)
+          for (req in requests) {
+            val measurement = try {
+              renderer.computeMeasurements(req.rect)
+            } catch (t: Throwable) {
+              Log.w(TAG, "computeMeasurements failed for id=${req.id}", t)
+              null
+            }
+
+            val entry = HashMap<String, Any?>(8)
+            entry["id"] = req.id
+            if (measurement != null) {
+              entry.putAll(measurement.toMap())
+            } else {
+              entry["processing"] = "processing"
+            }
+            out.add(entry)
+          }
+
+          root.post { result.success(out) }
         }
       }
 
@@ -183,13 +250,11 @@ class ArCoreMeasurePlatformView(
       return null
     }
 
-    // Check support first.
     if (!isArCoreSupported(context)) {
       Log.w(TAG, "ARCore not supported on this device")
       return null
     }
 
-    // Ensure ARCore is installed.
     try {
       val installStatus = ArCoreApk.getInstance().requestInstall(
         activity,
@@ -207,7 +272,6 @@ class ArCoreMeasurePlatformView(
     return try {
       val newSession = Session(activity)
 
-      // Select highest-resolution camera config for better depth accuracy.
       try {
         val filter = CameraConfigFilter(newSession)
         val configs = newSession.getSupportedCameraConfigs(filter)
@@ -231,7 +295,6 @@ class ArCoreMeasurePlatformView(
       newSession.configure(config)
       newSession.resume()
       session = newSession
-      // Set renderer session on the GL thread to avoid threading issues.
       glSurfaceView.queueEvent { renderer.setSession(newSession) }
       newSession
     } catch (t: Throwable) {

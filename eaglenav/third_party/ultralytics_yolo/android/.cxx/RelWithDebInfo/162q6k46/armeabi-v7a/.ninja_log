@@ -1,5 +1,10 @@
 # ninja log v5
-0	328	1775108674363693238	CMakeFiles/ultralytics.dir/native-lib.cpp.o	1c6035fc15d3230e
-330	366	1775108674403561406	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/armeabi-v7a/libultralytics.so	1e636353145ab4f7
-1	39	1775149515984641054	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/armeabi-v7a/libultralytics.so	1e636353145ab4f7
-2	38	1775150614461645811	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/armeabi-v7a/libultralytics.so	1e636353145ab4f7
+0	342	1776317516790961414	CMakeFiles/ultralytics.dir/native-lib.cpp.o	1c6035fc15d3230e
+343	395	1776317516845982324	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/armeabi-v7a/libultralytics.so	1e636353145ab4f7
+2	53	1776317611818151733	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/armeabi-v7a/libultralytics.so	1e636353145ab4f7
+1	51	1776318387433516701	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/armeabi-v7a/libultralytics.so	1e636353145ab4f7
+2	39	1776358856290869024	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/armeabi-v7a/libultralytics.so	1e636353145ab4f7
+1	42	1776359225184220119	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/armeabi-v7a/libultralytics.so	1e636353145ab4f7
+2	52	1776360679196152096	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/armeabi-v7a/libultralytics.so	1e636353145ab4f7
+2	41	1776361200711413815	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/armeabi-v7a/libultralytics.so	1e636353145ab4f7
+0	6	0	clean	fc331182e77667a9

@@ -12,8 +12,8 @@ import kotlin.math.max
 
 /**
  * Simple Canvas-based overlay that draws detection bounding boxes + labels.
- *
- * It is intentionally dumb: it only draws what it's given (no CV logic here).
+ * When [OverlayItem.filled] is true, draws a semi-transparent filled rectangle
+ * (segmentation style) instead of just the outline.
  */
 class DetectionOverlayView @JvmOverloads constructor(
   context: Context,
@@ -28,6 +28,10 @@ class DetectionOverlayView @JvmOverloads constructor(
     style = Paint.Style.STROKE
     strokeJoin = Paint.Join.ROUND
     strokeCap = Paint.Cap.ROUND
+  }
+
+  private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    style = Paint.Style.FILL
   }
 
   private val labelBgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -81,9 +85,20 @@ class DetectionOverlayView @JvmOverloads constructor(
       val right = item.rect.right
       val bottom = item.rect.bottom
 
-      // Box
-      boxPaint.color = item.colorArgb
-      canvas.drawRect(left, top, right, bottom, boxPaint)
+      if (item.filled) {
+        // Segmentation style: semi-transparent filled rectangle + border
+        val rgb = item.colorArgb and 0x00FFFFFF
+        fillPaint.color = (0x55 shl 24) or rgb  // ~33% opacity fill
+        canvas.drawRect(left, top, right, bottom, fillPaint)
+
+        // Solid border on top of the fill
+        boxPaint.color = item.colorArgb
+        canvas.drawRect(left, top, right, bottom, boxPaint)
+      } else {
+        // Detection style: just the outline
+        boxPaint.color = item.colorArgb
+        canvas.drawRect(left, top, right, bottom, boxPaint)
+      }
 
       // Label background + text
       val label = item.label

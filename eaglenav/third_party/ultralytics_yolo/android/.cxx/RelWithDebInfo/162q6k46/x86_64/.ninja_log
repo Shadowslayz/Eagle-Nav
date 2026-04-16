@@ -1,5 +1,10 @@
 # ninja log v5
-0	335	1775108675673185419	CMakeFiles/ultralytics.dir/native-lib.cpp.o	37f2a9c023b08488
-336	373	1775108675713132421	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/x86_64/libultralytics.so	fcf5644baa74bac7
-2	40	1775149516097751552	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/x86_64/libultralytics.so	fcf5644baa74bac7
-2	40	1775150614566637790	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/x86_64/libultralytics.so	fcf5644baa74bac7
+0	349	1776317518279594015	CMakeFiles/ultralytics.dir/native-lib.cpp.o	37f2a9c023b08488
+350	400	1776317518331942877	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/x86_64/libultralytics.so	fcf5644baa74bac7
+2	52	1776317611952481520	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/x86_64/libultralytics.so	fcf5644baa74bac7
+1	54	1776318387572868280	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/x86_64/libultralytics.so	fcf5644baa74bac7
+2	39	1776358856396346517	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/x86_64/libultralytics.so	fcf5644baa74bac7
+2	46	1776359225298750466	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/x86_64/libultralytics.so	fcf5644baa74bac7
+1	46	1776360679327133778	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/x86_64/libultralytics.so	fcf5644baa74bac7
+2	41	1776361200819290103	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/x86_64/libultralytics.so	fcf5644baa74bac7
+0	5	0	clean	fc331182e77667a9

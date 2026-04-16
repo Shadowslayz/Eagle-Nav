@@ -1,5 +1,10 @@
 # ninja log v5
-0	502	1775108673699994249	CMakeFiles/ultralytics.dir/native-lib.cpp.o	60ddc8c2d9efdca1
-504	542	1775108673741054251	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/arm64-v8a/libultralytics.so	1f4f388d9d4d9d4f
-1	46	1775149515898958765	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/arm64-v8a/libultralytics.so	1f4f388d9d4d9d4f
-2	47	1775150614412877478	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/arm64-v8a/libultralytics.so	1f4f388d9d4d9d4f
+0	446	1776317516010388828	CMakeFiles/ultralytics.dir/native-lib.cpp.o	60ddc8c2d9efdca1
+447	502	1776317516069457496	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/arm64-v8a/libultralytics.so	1f4f388d9d4d9d4f
+2	56	1776317611750536713	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/arm64-v8a/libultralytics.so	1f4f388d9d4d9d4f
+2	53	1776318387365867812	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/arm64-v8a/libultralytics.so	1f4f388d9d4d9d4f
+1	41	1776358856237196046	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/arm64-v8a/libultralytics.so	1f4f388d9d4d9d4f
+3	43	1776359225128613429	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/arm64-v8a/libultralytics.so	1f4f388d9d4d9d4f
+1	52	1776360679127451079	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/arm64-v8a/libultralytics.so	1f4f388d9d4d9d4f
+2	43	1776361200657391338	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/arm64-v8a/libultralytics.so	1f4f388d9d4d9d4f
+1	6	0	clean	fc331182e77667a9

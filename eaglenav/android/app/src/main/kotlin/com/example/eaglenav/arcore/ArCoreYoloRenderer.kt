@@ -33,6 +33,11 @@ import kotlin.math.sqrt
  */
 class ArCoreYoloRenderer(
     private val context: Context,
+    private val modelAssetPath: String = "yolo11n.tflite",
+    private val labels: List<String> = CocoLabels.LABELS,
+    private val numClasses: Int = -1,
+    private val filledOverlay: Boolean = false,
+    private val confidenceOverride: Float = -1f,
     private val onDetections: (items: List<OverlayItem>, payload: List<Map<String, Any>>) -> Unit,
 ) : GLSurfaceView.Renderer {
 
@@ -41,9 +46,11 @@ class ArCoreYoloRenderer(
 
     private val detector: YoloTfliteDetector = YoloTfliteDetector(
         assetManager = context.assets,
-        modelAssetPath = "yolo11n.tflite",
+        modelAssetPath = modelAssetPath,
+        labels = labels,
+        numClasses = numClasses,
     ).apply {
-        confidenceThreshold = DETECTION_CONF
+        confidenceThreshold = if (confidenceOverride > 0f) confidenceOverride else DETECTION_CONF
         iouThreshold = DETECTION_IOU
         maxDetections = MAX_DETECTIONS
     }
@@ -377,6 +384,7 @@ class ArCoreYoloRenderer(
                     rect = rectView,
                     label = label,
                     colorArgb = color,
+                    filled = filledOverlay,
                 )
             )
 

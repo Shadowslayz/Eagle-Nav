@@ -72,7 +72,7 @@ class OrientationCoach {
         await _ttsManager.stop();
         await _ttsManager.speak(
           streetName != null && streetName.isNotEmpty
-              ? 'Locked in.'
+              ? 'Locked in. Align your body with the phone and walk forward.'
               : 'Locked in. Align your body with the phone and walk forward.',
           TtsPriority.high,
         );

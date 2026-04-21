@@ -12,6 +12,18 @@ import '../widgets/building_search_bar.dart';
 import '../widgets/pulsing_location_marker.dart';
 import '../widgets/destination_selection_sheet.dart';
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  NAVIGATION SCREEN
+// ─────────────────────────────────────────────────────────────────────────────
+//
+//  The only class that holds references to all the controllers. It acts as
+//  a router: GPS ticks flow in through LocationController, fan out to
+//  RoutingController (deviation + reroute), GuidanceController (step
+//  progression), and NavigationVoiceController (speech). Controllers never
+//  reference each other directly — all coordination happens here.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
 class NavigationScreen extends StatefulWidget {
   const NavigationScreen({super.key});
 
@@ -29,6 +41,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
 
   ll.LatLng? _destination;
   bool _isPreviewFetch = false;
+  double totalTimeSeconds = 0;
 
   @override
   void initState() {
@@ -71,13 +84,31 @@ class _NavigationScreenState extends State<NavigationScreen> {
 
   // ── Controller listeners ──────────────────────────────────
 
+  /// Fires whenever LocationController emits a new GPS position.
+  /// Fans the tick out to each controller. Reads the compass heading once
+  /// so both Routing (dynamic reroute threshold) and Voice (off-course
+  /// suppression) use the same signal.
   void _onLocationUpdate() {
     final position = _locationController.currentLocation;
     if (position == null) return;
 
-    final deviation = _routingController.onLocationUpdate(position);
+    // Shared signal — used twice below.
+    final userHeading = _navVoice.currentHeading;
+
+    // RoutingController computes deviation AND uses the heading to pick
+    // an effective threshold. It also caches the route bearing at the
+    // nearest segment, which we read below for the off-course suppression.
+    final deviation = _routingController.onLocationUpdate(
+      position,
+      userHeadingDegrees: userHeading,
+    );
     _guidanceController.onLocationUpdate(position, deviationMeters: deviation);
 
+    // Phase 1 monitor — transitions to Phase 2 once the user reaches the
+    // walkable network. No-op during normal navigation.
+    _navVoice.onApproachUpdate(position);
+
+    // Distance countdown alerts — "in 8 steps, turn right" etc.
     final step = _guidanceController.currentStep;
     final nextStep = _guidanceController.nextStep;
 
@@ -90,41 +121,102 @@ class _NavigationScreenState extends State<NavigationScreen> {
       );
       _navVoice.onDistanceUpdate(
         remaining,
-        upcomingTurnDirection: nextStep?.getTurnDirection(),
+        upcomingTurnDirection: step.getTurnDirection(),
         upcomingStreetName: nextStep?.streetName,
       );
     }
 
+    // Off-course warning — suppressed when the user is aligned with the
+    // route direction, since they're probably on a parallel sidewalk and
+    // don't need to hear about it.
     if (deviation != null && _guidanceController.isNavigating) {
-      _navVoice.onDeviationUpdate(deviation);
+      final routeBearing = _routingController.lastRouteBearingAtUser;
+      final isAligned = routeBearing != null
+          ? _headingDifference(userHeading, routeBearing) < 45
+          : false;
+
+      _navVoice.onDeviationUpdate(deviation, userIsAligned: isAligned);
     }
 
+    // Keep the map centred on the user during active navigation.
     if (_guidanceController.isNavigating && mounted) {
       _mapController.move(position, _mapController.camera.zoom);
     }
   }
 
+  /// Absolute angular difference between two headings, in [0, 180].
+  /// Mirrors RoutingController's own helper so we stay consistent without
+  /// creating a cross-controller dependency.
+  double _headingDifference(double h1, double h2) {
+    final diff = (h1 - h2).abs() % 360;
+    return diff > 180 ? 360 - diff : diff;
+  }
+
+  /// Fires whenever RoutingController changes state (fetched, active,
+  /// rerouting, error). Wires the guidance callbacks, kicks off the first
+  /// step announcement (with Phase 1 fallback), and handles error UI.
   void _onRoutingUpdate() {
     if (_routingController.status == RoutingStatus.fetching) return;
-    if (_routingController.status == RoutingStatus.rerouting) return;
+
+    // Silence corrections while a reroute is in flight — the user will
+    // hear "Rerouting." from the voice controller and we don't want
+    // off-course warnings overlapping with that.
+    if (_routingController.status == RoutingStatus.rerouting) {
+      _navVoice.onRerouting();
+      return;
+    }
 
     if (_routingController.status == RoutingStatus.active &&
         _routingController.currentRoute != null) {
+      final route = _routingController.currentRoute!;
+
+      setState(() {
+        totalTimeSeconds = route.totalTimeSeconds;
+      });
+
       if (!_isPreviewFetch) {
-        final route = _routingController.currentRoute!;
         _guidanceController.startNavigation(route);
 
-        // Wire callback for subsequent step advances
+        // ── Imminent turn cue ─────────────────────────────────
+        // Fires the moment the user crosses into a step whose maneuver
+        // is a turn. Reads the NEW current step (already advanced by the
+        // controller) so the cue matches the turn happening right now.
+        // Runs BEFORE onStepAdvanced so the short "turn now" phrase hits
+        // the TTS queue first, then the longer announceStep follows with
+        // full context (street name, distance).
+        _guidanceController.onTurnImminent = () {
+          final step = _guidanceController.currentStep;
+          if (step == null) return;
+
+          final turn = step.getTurnDirection();
+          if (turn == null) return;
+
+          _navVoice.announceTurnNow(
+            maneuverType: step.maneuverType,
+            turnDirection: turn,
+          );
+        };
+
+        // ── Subsequent steps — user is already on network ─────
+        // No off-network check needed here — by definition the user
+        // is walking and has already passed the first path entry point.
         _guidanceController.onStepAdvanced = () {
           final step = _guidanceController.currentStep;
           final nextStep = _guidanceController.nextStep;
           final position = _locationController.currentLocation;
           if (step == null || position == null) return;
 
+          const dist = ll.Distance();
+          final remaining = dist.as(
+            ll.LengthUnit.Meter,
+            position,
+            step.endLocation,
+          );
+
           _navVoice.announceStep(
             valhallaInstruction: step.instruction,
             maneuverType: step.maneuverType,
-            distanceMeters: step.distanceMeters,
+            distanceMeters: remaining,
             stepEndLocation: step.endLocation,
             currentPosition: position,
             routePolyline: route.polyline,
@@ -135,39 +227,76 @@ class _NavigationScreenState extends State<NavigationScreen> {
           );
         };
 
-        // Wire arrival callback
+        // ── Arrival ───────────────────────────────────────────
         _guidanceController.onArrival = () async {
-          // Let the screen linger on the "Arrived" step for 4 seconds
-          // so the user can read the banner and the TTS can finish speaking.
           await Future.delayed(const Duration(seconds: 4));
-
-          // Make sure the user didn't close the app during those 4 seconds
           if (!mounted) return;
-
-          // Gracefully shut down the route and reset the UI
           _stopNavigation(isArrival: true);
           _uiController.setState(NavigationUIState.idle);
         };
 
-        // Announce first step immediately
+        // ── First step — two-phase check ──────────────────────
+        // Phase 1: user is off the walkable network (e.g. in cafeteria, on grass)
+        //          → orient them toward the path entry point
+        // Phase 2: user is already on the path
+        //          → start normal Valhalla guidance immediately
         if (route.steps.isNotEmpty) {
           final step = route.steps.first;
           final nextStep = route.steps.length > 1 ? route.steps[1] : null;
           final position = _locationController.currentLocation;
 
           if (position != null) {
-            _navVoice.announceStep(
-              valhallaInstruction: step.instruction,
-              maneuverType: step.maneuverType,
-              distanceMeters: step.distanceMeters,
-              stepEndLocation: step.endLocation,
-              currentPosition: position,
-              routePolyline: route.polyline,
-              streetName: step.streetName ?? '',
-              nextStreetName: nextStep?.streetName,
-              nextTurnDirection: nextStep?.getTurnDirection(),
-              nextTurnStreetName: nextStep?.streetName,
+            const dist = ll.Distance();
+
+            final remaining = dist.as(
+              ll.LengthUnit.Meter,
+              position,
+              step.endLocation,
             );
+
+            final distanceToPath = dist.as(
+              ll.LengthUnit.Meter,
+              position,
+              route.polyline.first,
+            );
+
+            if (distanceToPath > 15.0) {
+              // ── Phase 1 — off network ────────────────────────
+              _navVoice.announceApproachToPath(
+                currentPosition: position,
+                pathEntryPoint: route.polyline.first,
+                streetName: step.streetName ?? '',
+                onReached: () {
+                  // ── Phase 2 — on network, start real guidance
+                  _navVoice.announceStep(
+                    valhallaInstruction: step.instruction,
+                    maneuverType: step.maneuverType,
+                    distanceMeters: remaining,
+                    stepEndLocation: step.endLocation,
+                    currentPosition: position,
+                    routePolyline: route.polyline,
+                    streetName: step.streetName ?? '',
+                    nextStreetName: nextStep?.streetName,
+                    nextTurnDirection: nextStep?.getTurnDirection(),
+                    nextTurnStreetName: nextStep?.streetName,
+                  );
+                },
+              );
+            } else {
+              // ── Already on path — skip Phase 1 ───────────────
+              _navVoice.announceStep(
+                valhallaInstruction: step.instruction,
+                maneuverType: step.maneuverType,
+                distanceMeters: remaining,
+                stepEndLocation: step.endLocation,
+                currentPosition: position,
+                routePolyline: route.polyline,
+                streetName: step.streetName ?? '',
+                nextStreetName: nextStep?.streetName,
+                nextTurnDirection: nextStep?.getTurnDirection(),
+                nextTurnStreetName: nextStep?.streetName,
+              );
+            }
           }
         }
       }
@@ -179,21 +308,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
   }
 
   // ── User actions ──────────────────────────────────────────
-
-  /*   void _onBuildingSelected(destination) {
-    final entrance = destination.mainEntrance;
-    if (entrance == null) return;
-
-    final dest = ll.LatLng(entrance.latitude, entrance.longitude);
-    setState(() => _destination = dest);
-    _mapController.move(dest, 17.0);
-
-    _uiController.setState(
-      NavigationUIState.destinationSelected,
-      destination: destination,
-    );
-    _fetchPreviewRoute();
-  } */
 
   void _onBuildingSelected(destination) {
     final position = _locationController.currentLocation;
@@ -292,8 +406,8 @@ class _NavigationScreenState extends State<NavigationScreen> {
     _guidanceController.stopNavigation();
     _routingController.clearRoute();
 
-    // Only kill the audio if the user manually cancelled.
-    // If they successfully arrived, let the TTS finish speaking!
+    // Only stop audio if manually cancelled.
+    // On arrival let TTS finish speaking.
     if (!isArrival) {
       _navVoice.stop();
     }
@@ -321,6 +435,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
               onStart: _startNavigation,
               onLoad: _loadRoute,
               destinationName: dest?.name ?? 'Destination',
+              walkingTime: getFormattedTime(totalTimeSeconds),
               isNavigating: _guidanceController.isNavigating,
             ),
           );
@@ -328,6 +443,10 @@ class _NavigationScreenState extends State<NavigationScreen> {
         return const SizedBox.shrink();
       },
     );
+  }
+
+  int getFormattedTime(double totalSeconds) {
+    return (totalSeconds / 60).ceil();
   }
 
   void _zoomIn() {
@@ -382,7 +501,11 @@ class _NavigationScreenState extends State<NavigationScreen> {
               _uiController.state == NavigationUIState.destinationSelected;
 
           return GestureDetector(
-            onDoubleTap: () => _navVoice.announceCurrentHeading(),
+            onDoubleTap: () => _navVoice.announceCurrentHeading(
+              currentPosition: _locationController.currentLocation,
+              currentStreetName: _guidanceController.currentStep?.streetName,
+              isOnRoute: (_routingController.lastDeviation ?? 0) < 20,
+            ),
             child: Stack(
               children: [
                 // ── Map ──────────────────────────────────────
@@ -408,12 +531,10 @@ class _NavigationScreenState extends State<NavigationScreen> {
                       minZoom: 12.0,
                     ),
                     PolylineLayer(
-                      // FIX: Prevent lines from disappearing on zoom/pan
                       simplificationTolerance: 0.0,
                       polylines: [
                         if (polyline.isNotEmpty)
                           Polyline(
-                            // FIX: Spread operator forces the map to redraw updates
                             points: [...polyline],
                             strokeWidth: 40.0,
                             color: Colors.blue.withOpacity(0.12),
@@ -424,7 +545,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
                           ),
                         if (polyline.isNotEmpty)
                           Polyline(
-                            // FIX: Spread operator forces the map to redraw updates
                             points: [...polyline],
                             strokeWidth: 4,
                             color: isNavigating
@@ -512,12 +632,11 @@ class _NavigationScreenState extends State<NavigationScreen> {
                     ),
                   ),
 
-                // ── Recenter button (Using proven layout logic) ────────────
+                // ── Recenter button ───────────────────────────
                 AnimatedPositioned(
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeInOut,
-                  right: 16, // Pinned to the right
-                  // Uses the exact same working math as your zoom buttons!
+                  right: 16,
                   bottom: (isNavigating || isDestinationSelected) ? 240 : 120,
                   child: FloatingActionButton(
                     heroTag: 'recenter_btn_safe',

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-
 class DestinationSelectionSheet extends StatelessWidget {
   final String destinationName;
-  final bool isNavigating; 
+  final bool isNavigating;
+  final int walkingTime;
   // flag to toggle button state
 
   final VoidCallback onLoad;
@@ -13,10 +13,11 @@ class DestinationSelectionSheet extends StatelessWidget {
   const DestinationSelectionSheet({
     // Data to receive
     required this.destinationName,
+    required this.walkingTime,
     required this.onLoad,
     required this.onStart,
     required this.onCancel,
-    this.isNavigating = false, 
+    this.isNavigating = false,
     // default to false
   });
 
@@ -35,7 +36,7 @@ class DestinationSelectionSheet extends StatelessWidget {
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            const Text("Walking distance: -- mins"),
+            Text("Walking distance: $walkingTime mins"),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -54,7 +55,7 @@ class DestinationSelectionSheet extends StatelessWidget {
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isNavigating ? Colors.red : Colors.blue,
-                      
+
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     onPressed: onStart,

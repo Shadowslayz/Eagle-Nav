@@ -36,6 +36,9 @@ Future<List<ll.LatLng>> getValhallaRoutePolyline6({
         // Prefer sidewalks and dedicated walkways
         "walkway_factor": 0.5,
         "sidewalk_factor": 0.5,
+        // add these to block tunnels/underground paths
+        "tunnel_factor": 50.0, // heavily penalize tunnels
+        "use_hills": 0.0, // avoid steep inclines
       },
     },
     "directions_type": {"units": "meters", "language": "en-US"},
@@ -51,8 +54,8 @@ Future<List<ll.LatLng>> getValhallaRoutePolyline6({
       body: jsonEncode(body),
     );
 
-    print('✅ Response status: ${resp.statusCode}');
-    print('📦 Response body: ${resp.body}');
+    print('Response status: ${resp.statusCode}');
+    print('Response body: ${resp.body}');
 
     if (resp.statusCode != 200) {
       print('Non-200 status code!');
@@ -60,14 +63,14 @@ Future<List<ll.LatLng>> getValhallaRoutePolyline6({
     }
 
     final data = jsonDecode(resp.body) as Map<String, dynamic>;
-    print('📋 Response keys: ${data.keys.toList()}');
+    print('Response keys: ${data.keys.toList()}');
 
     if (!data.containsKey('trip')) {
       print('No "trip" key in response!');
       return [];
     }
 
-    print('📋 Trip keys: ${data['trip'].keys.toList()}');
+    print('Trip keys: ${data['trip'].keys.toList()}');
 
     if (!data['trip'].containsKey('legs')) {
       print('No "legs" key in trip!');

@@ -24,7 +24,7 @@ class OffCourseDetector {
   DateTime _lastWarning = DateTime.fromMillisecondsSinceEpoch(0);
 
   static const Duration _warnInterval = Duration(seconds: 10);
-  static const double _nearThreshold = 10.0; // just off path
+  static const double _nearThreshold = 20.0; // just off path
   static const double _farThreshold = 20.0; // clearly off, reroute incoming
 
   OffCourseDetector(this._tts, {required this.isBusy});
@@ -52,6 +52,6 @@ class OffCourseDetector {
     }
 
     await _tts.stop();
-    await _tts.speak(message, TtsPriority.high);
+    await _tts.speak(message, TtsPriority.low);
   }
 }

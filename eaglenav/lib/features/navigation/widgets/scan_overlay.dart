@@ -1,14 +1,27 @@
 import 'dart:async';
 import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:ultralytics_yolo/ultralytics_yolo.dart';
 
+/// Scan modes triggered from the Scan button on the navigation screen.
+/// - single tap → arrows overlay (camera invisible; map visible through tint)
+/// - long press → full object detection screen (camera visible with labels)
+enum ScanMode { arrowsSegment, fullDetect }
+
 class ScanOverlay extends StatefulWidget {
   final VoidCallback onDismiss;
+  final ScanMode mode;
 
-  const ScanOverlay({super.key, required this.onDismiss});
+  const ScanOverlay({
+    super.key,
+    required this.onDismiss,
+    this.mode = ScanMode.arrowsSegment,
+  });
 
   @override
   State<ScanOverlay> createState() => _ScanOverlayState();
@@ -17,29 +30,31 @@ class ScanOverlay extends StatefulWidget {
 class _ScanOverlayState extends State<ScanOverlay> {
   final FlutterTts _tts = FlutterTts();
 
-  // Rolling detection buffer: direction → objects seen
-  final Map<String, Set<String>> _buffer = {
+  final Map<String, Map<String, String>> _buffer = {
     'AHEAD': {},
     'LEFT': {},
     'RIGHT': {},
   };
 
-  // What was in the last summary (for display)
   String _summaryText = 'Scanning environment…';
   String _activeDirection = '';
   double _threatLevel = 0.0;
   Timer? _summaryTimer;
 
-  // Classes not worth announcing while walking
+  MethodChannel? _arcoreDetectChannel;
+  MethodChannel? _arcoreSegChannel;
+
   static const Set<String> _ignored = {
     'ceiling', 'floor', 'sky', 'road', 'sidewalk', 'ground', 'pavement',
   };
+
+  bool get _isArrowsMode => widget.mode == ScanMode.arrowsSegment;
 
   @override
   void initState() {
     super.initState();
     _initTts();
-    _scheduleSummary();
+    if (_isArrowsMode) _scheduleSummary();
   }
 
   Future<void> _initTts() async {
@@ -52,39 +67,75 @@ class _ScanOverlayState extends State<ScanOverlay> {
   void dispose() {
     _tts.stop();
     _summaryTimer?.cancel();
+    _pauseArCore(_arcoreDetectChannel);
+    _pauseArCore(_arcoreSegChannel);
     super.dispose();
   }
 
-  // ── Spatial helpers ───────────────────────────────────────────────────────
+  Future<void> _pauseArCore(MethodChannel? c) async {
+    if (c == null) return;
+    try { await c.invokeMethod('pause'); } catch (e) { debugPrint('ARCore pause: $e'); }
+  }
 
-  String _directionFrom(Rect box) {
-    final cx = box.left + box.width / 2;
+  Future<void> _resumeArCore(MethodChannel? c) async {
+    if (c == null) return;
+    try { await c.invokeMethod('resume'); } catch (e) { debugPrint('ARCore resume: $e'); }
+  }
+
+  String _directionFromNormalizedCx(double cx) {
     if (cx < 0.33) return 'LEFT';
     if (cx > 0.67) return 'RIGHT';
     return 'AHEAD';
   }
 
+  String _directionFromRect(Rect box) {
+    final cx = box.left + box.width / 2;
+    return _directionFromNormalizedCx(cx);
+  }
+
   double _area(Rect box) => box.width * box.height;
 
   int _urgency(double area) {
-    if (area > 0.28) return 3; // stop
-    if (area > 0.12) return 2; // close
-    if (area > 0.04) return 1; // heads-up
+    if (area > 0.28) return 3;
+    if (area > 0.12) return 2;
+    if (area > 0.04) return 1;
     return 0;
   }
 
-  // ── Detection handlers ────────────────────────────────────────────────────
-
-  void _handleDetectResults(List<YOLOResult> results) {
-    _processResults(results);
+  int _estimateFeetFromArea(double area) {
+    if (area >= 0.35) return 2;
+    if (area >= 0.25) return 3;
+    if (area >= 0.18) return 4;
+    if (area >= 0.12) return 5;
+    if (area >= 0.08) return 7;
+    if (area >= 0.05) return 10;
+    if (area >= 0.03) return 12;
+    return 15;
   }
 
-  void _handleSegResults(List<YOLOResult> results) {
-    _processResults(results);
+  String _toFeetOnly(String raw) {
+    if (raw.isEmpty) return '';
+    final feetRegex = RegExp(r"(\d+)\s*(?:ft|\u2032|')");
+    final inchRegex = RegExp(r'(\d+)\s*(?:in|\u2033|")');
+
+    int? feet;
+    int? inches;
+
+    final feetMatch = feetRegex.firstMatch(raw);
+    if (feetMatch != null) feet = int.tryParse(feetMatch.group(1)!);
+    final inchMatch = inchRegex.firstMatch(raw);
+    if (inchMatch != null) inches = int.tryParse(inchMatch.group(1)!);
+
+    if (feet == null && inches == null) return raw.trim();
+
+    int totalFeet = feet ?? 0;
+    if (inches != null && inches >= 6) totalFeet += 1;
+    if (totalFeet <= 0) totalFeet = 1;
+    return '${totalFeet}ft';
   }
 
-  void _processResults(List<YOLOResult> results) {
-    if (!mounted) return;
+  void _handleIOSArrowsResults(List<YOLOResult> results) {
+    if (!mounted || !_isArrowsMode) return;
 
     final relevant = results.where((r) =>
         r.className.isNotEmpty &&
@@ -92,39 +143,114 @@ class _ScanOverlayState extends State<ScanOverlay> {
 
     if (relevant.isEmpty) return;
 
-    // Sort by proximity (largest area = closest)
-    relevant.sort((a, b) =>
-        _area(b.normalizedBox).compareTo(_area(a.normalizedBox)));
+    relevant.sort((a, b) => _area(b.normalizedBox).compareTo(_area(a.normalizedBox)));
 
-    // Add all visible objects to the rolling buffer
     for (final r in relevant) {
       final area = _area(r.normalizedBox);
       if (_urgency(area) == 0) continue;
-      final dir = _directionFrom(r.normalizedBox);
-      _buffer[dir]?.add(r.className.toLowerCase());
+      final dir = _directionFromRect(r.normalizedBox);
+
+      // Use real LiDAR distance from the patched plugin; fall back to area estimate.
+      String distStr;
+      try {
+        final lidar = (r as dynamic).distanceText as String?;
+        distStr = (lidar != null && lidar.isNotEmpty)
+            ? lidar
+            : '${_estimateFeetFromArea(area)}ft';
+      } catch (_) {
+        distStr = '${_estimateFeetFromArea(area)}ft';
+      }
+
+      _buffer[dir]?[r.className.toLowerCase()] = distStr;
     }
 
-    // Immediate safety haptic for stop-level threat (no TTS — summary handles speech)
     final topArea = _area(relevant.first.normalizedBox);
-    final topDir = _directionFrom(relevant.first.normalizedBox);
+    final topDir = _directionFromRect(relevant.first.normalizedBox);
 
     setState(() {
       _threatLevel = (topArea / 0.35).clamp(0.0, 1.0);
       _activeDirection = topDir;
     });
 
-    if (_urgency(topArea) >= 3) {
+    _triggerHaptics(_urgency(topArea));
+  }
+
+  void _onArCoreDetectViewCreated(int viewId) {
+    final channel = MethodChannel('arcore_yolo_view_$viewId');
+    _arcoreDetectChannel = channel;
+    channel.setMethodCallHandler((call) async {});
+    _resumeArCore(channel);
+  }
+
+  void _onArCoreSegViewCreated(int viewId) {
+    final channel = MethodChannel('arcore_seg_view_$viewId');
+    _arcoreSegChannel = channel;
+    channel.setMethodCallHandler((call) async {
+      if (call.method != 'onDetections') return;
+      if (!_isArrowsMode) return;
+      final arguments = call.arguments;
+      final payload = arguments is List ? List<dynamic>.from(arguments) : const <dynamic>[];
+      _processAndroidPayloadForArrows(payload);
+    });
+    _resumeArCore(channel);
+  }
+
+  void _processAndroidPayloadForArrows(List<dynamic> payload) {
+    if (!mounted || payload.isEmpty) return;
+
+    final items = <_ArDetection>[];
+    for (final raw in payload) {
+      if (raw is! Map) continue;
+      final cls = (raw['class'] as String?)?.toLowerCase() ?? '';
+      if (cls.isEmpty) continue;
+      if (_ignored.contains(cls)) continue;
+
+      final x = (raw['x'] as num?)?.toDouble() ?? 0.0;
+      final y = (raw['y'] as num?)?.toDouble() ?? 0.0;
+      final w = (raw['w'] as num?)?.toDouble() ?? 0.0;
+      final h = (raw['h'] as num?)?.toDouble() ?? 0.0;
+      final distText = (raw['distance_text'] as String?) ?? '';
+
+      items.add(_ArDetection(
+        className: cls,
+        cx: x + w / 2,
+        area: w * h,
+        distanceText: distText,
+      ));
+    }
+
+    if (items.isEmpty) return;
+    items.sort((a, b) => b.area.compareTo(a.area));
+
+    for (final d in items) {
+      if (_urgency(d.area) == 0) continue;
+      final dir = _directionFromNormalizedCx(d.cx);
+      final distStr = d.distanceText.isNotEmpty
+          ? d.distanceText
+          : '${_estimateFeetFromArea(d.area)}ft';
+      _buffer[dir]?[d.className] = distStr;
+    }
+
+    final top = items.first;
+    setState(() {
+      _threatLevel = (top.area / 0.35).clamp(0.0, 1.0);
+      _activeDirection = _directionFromNormalizedCx(top.cx);
+    });
+
+    _triggerHaptics(_urgency(top.area));
+  }
+
+  void _triggerHaptics(int urgency) {
+    if (urgency >= 3) {
       HapticFeedback.heavyImpact();
       Future.delayed(const Duration(milliseconds: 130), HapticFeedback.heavyImpact);
-    } else if (_urgency(topArea) == 2) {
+    } else if (urgency == 2) {
       HapticFeedback.mediumImpact();
     }
   }
 
-  // ── Periodic environment summary ──────────────────────────────────────────
-
   void _scheduleSummary() {
-    _summaryTimer = Timer(const Duration(seconds: 4), _announceAndReschedule);
+    _summaryTimer = Timer(const Duration(seconds: 5), _announceAndReschedule);
   }
 
   Future<void> _announceAndReschedule() async {
@@ -136,25 +262,32 @@ class _ScanOverlayState extends State<ScanOverlay> {
   Future<void> _buildAndSpeakSummary() async {
     final parts = <String>[];
 
-    // Priority order: AHEAD is most critical, then sides
     for (final dir in ['AHEAD', 'LEFT', 'RIGHT']) {
       final items = _buffer[dir];
       if (items == null || items.isEmpty) continue;
 
-      // Take top 2 unique objects, format nicely
-      final names = items.take(2).toList();
-      final label = names.length == 1
-          ? names.first
-          : '${names.first} and ${names.last}';
+      final entries = items.entries.take(2).toList();
+      final pieces = <String>[];
 
-      if (dir == 'AHEAD') {
-        parts.add('$label ahead');
-      } else {
-        parts.add('$label on your ${dir.toLowerCase()}');
+      for (final e in entries) {
+        final name = e.key;
+        final feetOnly = _toFeetOnly(e.value);
+
+        String locationPhrase;
+        if (dir == 'AHEAD') locationPhrase = 'ahead';
+        else if (dir == 'LEFT') locationPhrase = 'on your left';
+        else locationPhrase = 'on your right';
+
+        if (feetOnly.isEmpty) {
+          pieces.add('$name $locationPhrase');
+        } else {
+          pieces.add('$name $feetOnly $locationPhrase');
+        }
       }
+
+      parts.addAll(pieces);
     }
 
-    // Clear buffer after reading
     _buffer.forEach((k, v) => v.clear());
 
     final text = parts.isEmpty ? 'Path clear' : parts.join(', ');
@@ -167,14 +300,16 @@ class _ScanOverlayState extends State<ScanOverlay> {
       }
     });
 
-    await _tts.stop();
-    await _tts.speak(text);
+    try {
+      await _tts.stop();
+      await _tts.speak(text);
+    } catch (e) {
+      debugPrint('TTS: $e');
+    }
   }
 
   String _capitalize(String s) =>
       s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
-
-  // ── Threat color ──────────────────────────────────────────────────────────
 
   Color get _threatColor {
     if (_threatLevel > 0.72) return Colors.red;
@@ -182,7 +317,19 @@ class _ScanOverlayState extends State<ScanOverlay> {
     return const Color(0xFFC9A227);
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
+  String get _modeTitle {
+    switch (widget.mode) {
+      case ScanMode.arrowsSegment: return 'Obstacle Scan';
+      case ScanMode.fullDetect: return 'Objects + Distance + Size';
+    }
+  }
+
+  IconData get _modeIcon {
+    switch (widget.mode) {
+      case ScanMode.arrowsSegment: return Icons.radar;
+      case ScanMode.fullDetect: return Icons.center_focus_strong;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -195,44 +342,52 @@ class _ScanOverlayState extends State<ScanOverlay> {
       onTap: widget.onDismiss,
       child: Stack(
         children: [
-          // ── Primary camera: detection model ──────────────────
+          // ── Camera: full-screen but invisible in arrows mode ──
+          // Using Opacity(0) instead of offscreen positioning so iOS AVCapture
+          // initializes properly and ARCore on Android has a real surface.
           SizedBox.expand(
-            child: YOLOView(
-              key: const ValueKey('scan_detect_yolo'),
-              modelPath: detectModel,
-              task: YOLOTask.detect,
-              confidenceThreshold: 0.35,
-              showOverlays: true,
-              onResult: _handleDetectResults,
+            child: Opacity(
+              opacity: _isArrowsMode ? 0.0 : 1.0,
+              child: _PrimaryCameraView(
+                mode: widget.mode,
+                detectModel: detectModel,
+                segModel: segModel,
+                onIOSArrowsResult: _handleIOSArrowsResults,
+                onAndroidDetectViewCreated: _onArCoreDetectViewCreated,
+                onAndroidSegViewCreated: _onArCoreSegViewCreated,
+              ),
             ),
           ),
 
-          // ── Background: segmentation model (1×1, feeds results only) ──
-          Positioned(
-            left: 0,
-            top: 0,
-            width: 1,
-            height: 1,
-            child: YOLOView(
-              key: const ValueKey('scan_seg_yolo'),
-              modelPath: segModel,
-              task: YOLOTask.segment,
-              confidenceThreshold: 0.35,
-              showOverlays: false,
-              onResult: _handleSegResults,
+          // ── Arrows mode: tinted gradient so the map shows through ──
+          if (_isArrowsMode)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      center: Alignment.center,
+                      radius: 1.3,
+                      colors: [
+                        _threatColor.withOpacity(0.10),
+                        _threatColor.withOpacity(0.28),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
 
-          // ── Threat border pulse ───────────────────────────────
-          if (_threatLevel > 0.45)
+          // ── Threat border pulse (arrows mode only) ────────────
+          if (_isArrowsMode && _threatLevel > 0.45)
             Positioned.fill(
               child: IgnorePointer(
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
                   decoration: BoxDecoration(
                     border: Border.all(
-                      color: _threatColor.withOpacity(0.55 * _threatLevel),
-                      width: 5,
+                      color: _threatColor.withOpacity(0.7 * _threatLevel),
+                      width: 6,
                     ),
                   ),
                 ),
@@ -261,24 +416,25 @@ class _ScanOverlayState extends State<ScanOverlay> {
                       color: const Color(0xFFC9A227).withOpacity(0.18),
                       borderRadius: BorderRadius.circular(9),
                     ),
-                    child: const Icon(Icons.radar, color: Color(0xFFC9A227), size: 18),
+                    child: Icon(_modeIcon, color: const Color(0xFFC9A227), size: 18),
                   ),
                   const SizedBox(width: 10),
-                  const Column(
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Obstacle Scan',
-                        style: TextStyle(
+                        _modeTitle,
+                        style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 16,
+                          fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Text(
-                        'Summarizes every 4 seconds',
-                        style: TextStyle(color: Colors.white38, fontSize: 11),
-                      ),
+                      if (_isArrowsMode)
+                        const Text(
+                          'Summarizes every 5 seconds',
+                          style: TextStyle(color: Colors.white70, fontSize: 11),
+                        ),
                     ],
                   ),
                   const Spacer(),
@@ -323,34 +479,31 @@ class _ScanOverlayState extends State<ScanOverlay> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Direction arrows (real-time, based on closest live threat)
-                  _DirectionRow(
-                    activeDirection: _activeDirection,
-                    color: _threatColor,
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Last spoken summary
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    child: Text(
-                      _summaryText,
-                      key: ValueKey(_summaryText),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: _summaryText == 'Path clear' || _summaryText == 'Scanning environment…'
-                            ? Colors.white70
-                            : Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        height: 1.35,
+                  if (_isArrowsMode) ...[
+                    _DirectionRow(
+                      activeDirection: _activeDirection,
+                      color: _threatColor,
+                    ),
+                    const SizedBox(height: 16),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      child: Text(
+                        _summaryText,
+                        key: ValueKey(_summaryText),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: _summaryText == 'Path clear' ||
+                                  _summaryText == 'Scanning environment…'
+                              ? Colors.white70
+                              : Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          height: 1.35,
+                        ),
                       ),
                     ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Timer hint
+                    const SizedBox(height: 12),
+                  ],
                   const Text(
                     'Tap anywhere to close',
                     style: TextStyle(color: Colors.white30, fontSize: 12),
@@ -365,7 +518,134 @@ class _ScanOverlayState extends State<ScanOverlay> {
   }
 }
 
-// ── Direction indicator ───────────────────────────────────────────────────────
+class _PrimaryCameraView extends StatelessWidget {
+  final ScanMode mode;
+  final String detectModel;
+  final String segModel;
+  final void Function(List<YOLOResult>) onIOSArrowsResult;
+  final ValueChanged<int> onAndroidDetectViewCreated;
+  final ValueChanged<int> onAndroidSegViewCreated;
+
+  const _PrimaryCameraView({
+    required this.mode,
+    required this.detectModel,
+    required this.segModel,
+    required this.onIOSArrowsResult,
+    required this.onAndroidDetectViewCreated,
+    required this.onAndroidSegViewCreated,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (Platform.isAndroid) {
+      switch (mode) {
+        case ScanMode.arrowsSegment:
+          return _AndroidArCoreSegView(onPlatformViewCreated: onAndroidSegViewCreated);
+        case ScanMode.fullDetect:
+          return _AndroidArCoreYoloView(onPlatformViewCreated: onAndroidDetectViewCreated);
+      }
+    }
+
+    switch (mode) {
+      case ScanMode.arrowsSegment:
+        return YOLOView(
+          key: const ValueKey('scan_arrows_yolo'),
+          modelPath: segModel,
+          task: YOLOTask.segment,
+          confidenceThreshold: 0.55,
+          showOverlays: false,
+          onResult: onIOSArrowsResult,
+        );
+      case ScanMode.fullDetect:
+        return YOLOView(
+          key: const ValueKey('scan_full_detect_yolo'),
+          modelPath: detectModel,
+          task: YOLOTask.detect,
+          confidenceThreshold: 0.55,
+          showOverlays: true,
+          onResult: (_) {},
+        );
+    }
+  }
+}
+
+class _AndroidArCoreYoloView extends StatelessWidget {
+  final ValueChanged<int> onPlatformViewCreated;
+  const _AndroidArCoreYoloView({required this.onPlatformViewCreated});
+
+  @override
+  Widget build(BuildContext context) {
+    return PlatformViewLink(
+      key: const ValueKey('scan_android_arcore_yolo_view'),
+      viewType: 'arcore_yolo_view',
+      surfaceFactory: (context, controller) => AndroidViewSurface(
+        controller: controller as AndroidViewController,
+        gestureRecognizers: const <Factory<OneSequenceGestureRecognizer>>{},
+        hitTestBehavior: PlatformViewHitTestBehavior.opaque,
+      ),
+      onCreatePlatformView: (params) {
+        final controller = PlatformViewsService.initExpensiveAndroidView(
+          id: params.id,
+          viewType: 'arcore_yolo_view',
+          layoutDirection: TextDirection.ltr,
+          onFocus: () => params.onFocusChanged(true),
+        );
+        controller.addOnPlatformViewCreatedListener((viewId) {
+          params.onPlatformViewCreated(viewId);
+          onPlatformViewCreated(viewId);
+        });
+        controller.create();
+        return controller;
+      },
+    );
+  }
+}
+
+class _AndroidArCoreSegView extends StatelessWidget {
+  final ValueChanged<int> onPlatformViewCreated;
+  const _AndroidArCoreSegView({required this.onPlatformViewCreated});
+
+  @override
+  Widget build(BuildContext context) {
+    return PlatformViewLink(
+      key: const ValueKey('scan_android_arcore_seg_view'),
+      viewType: 'arcore_seg_view',
+      surfaceFactory: (context, controller) => AndroidViewSurface(
+        controller: controller as AndroidViewController,
+        gestureRecognizers: const <Factory<OneSequenceGestureRecognizer>>{},
+        hitTestBehavior: PlatformViewHitTestBehavior.opaque,
+      ),
+      onCreatePlatformView: (params) {
+        final controller = PlatformViewsService.initExpensiveAndroidView(
+          id: params.id,
+          viewType: 'arcore_seg_view',
+          layoutDirection: TextDirection.ltr,
+          onFocus: () => params.onFocusChanged(true),
+        );
+        controller.addOnPlatformViewCreatedListener((viewId) {
+          params.onPlatformViewCreated(viewId);
+          onPlatformViewCreated(viewId);
+        });
+        controller.create();
+        return controller;
+      },
+    );
+  }
+}
+
+class _ArDetection {
+  final String className;
+  final double cx;
+  final double area;
+  final String distanceText;
+
+  _ArDetection({
+    required this.className,
+    required this.cx,
+    required this.area,
+    required this.distanceText,
+  });
+}
 
 class _DirectionRow extends StatelessWidget {
   final String activeDirection;
@@ -378,23 +658,11 @@ class _DirectionRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _Arrow(
-          icon: Icons.arrow_back_rounded,
-          active: activeDirection == 'LEFT',
-          color: color,
-        ),
+        _Arrow(icon: Icons.arrow_back_rounded, active: activeDirection == 'LEFT', color: color),
         const SizedBox(width: 12),
-        _Arrow(
-          icon: Icons.arrow_upward_rounded,
-          active: activeDirection == 'AHEAD',
-          color: color,
-        ),
+        _Arrow(icon: Icons.arrow_upward_rounded, active: activeDirection == 'AHEAD', color: color),
         const SizedBox(width: 12),
-        _Arrow(
-          icon: Icons.arrow_forward_rounded,
-          active: activeDirection == 'RIGHT',
-          color: color,
-        ),
+        _Arrow(icon: Icons.arrow_forward_rounded, active: activeDirection == 'RIGHT', color: color),
       ],
     );
   }
@@ -421,11 +689,7 @@ class _Arrow extends StatelessWidget {
           width: active ? 2.5 : 1,
         ),
       ),
-      child: Icon(
-        icon,
-        color: active ? color : Colors.white30,
-        size: active ? 28 : 22,
-      ),
+      child: Icon(icon, color: active ? color : Colors.white30, size: active ? 28 : 22),
     );
   }
 }

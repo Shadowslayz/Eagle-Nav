@@ -100,10 +100,10 @@ SPEC CHECKSUMS:
   permission_handler_apple: 4ed2196e43d0651e8ff7ca3483a069d469701f2d
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   speech_to_text: 3b313d98516d3d0406cea424782ec25470c59d19
-  ultralytics_yolo: 650ea1417a5b3ef9b1acc55e6edef5385018d3b5
+  ultralytics_yolo: 52808eafe41f4a4a7070a3d8c32c45a7ee0ec1e0
   url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
   vibration: ca8104a8875b9c493e15b21b04e456befd0ff6eb
 
-PODFILE CHECKSUM: a38341d976523a85f2f7c2d34a19eda82923ff75
+PODFILE CHECKSUM: a1eefb342b19824edbbdd19cd936e28779bd3b49
 
 COCOAPODS: 1.16.2

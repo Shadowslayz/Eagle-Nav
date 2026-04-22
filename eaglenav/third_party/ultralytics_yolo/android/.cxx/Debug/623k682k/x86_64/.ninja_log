@@ -1,0 +1,12 @@
+# ninja log v5
+0	264	1776358676238567569	CMakeFiles/ultralytics.dir/native-lib.cpp.o	cb40c963d1fc7b28
+265	301	1776358676277229747	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/x86_64/libultralytics.so	1460370629c39c64
+0	5	0	clean	fc331182e77667a9
+1	327	1776361807181412973	CMakeFiles/ultralytics.dir/native-lib.cpp.o	cb40c963d1fc7b28
+328	378	1776361807235046453	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/x86_64/libultralytics.so	1460370629c39c64
+2	68	1776362211509799730	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/x86_64/libultralytics.so	1460370629c39c64
+2	79	1776362866232802470	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/x86_64/libultralytics.so	1460370629c39c64
+2	82	1776362972618570153	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/x86_64/libultralytics.so	1460370629c39c64
+2	67	1776363205206335946	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/x86_64/libultralytics.so	1460370629c39c64
+2	65	1776363322116565043	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/x86_64/libultralytics.so	1460370629c39c64
+2	67	1776363686923405456	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/Debug/623k682k/obj/x86_64/libultralytics.so	1460370629c39c64

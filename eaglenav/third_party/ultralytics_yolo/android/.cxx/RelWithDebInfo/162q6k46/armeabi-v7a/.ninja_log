@@ -1,0 +1,3 @@
+# ninja log v5
+0	401	1776825465525111271	CMakeFiles/ultralytics.dir/native-lib.cpp.o	1c6035fc15d3230e
+403	451	1776825465576250010	/Users/nickshroff/Desktop/Eagle-Nav/eaglenav/build/ultralytics_yolo/intermediates/cxx/RelWithDebInfo/162q6k46/obj/armeabi-v7a/libultralytics.so	1e636353145ab4f7

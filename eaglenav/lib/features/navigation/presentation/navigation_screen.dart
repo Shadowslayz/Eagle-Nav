@@ -3,6 +3,7 @@ import 'package:eaglenav/features/navigation/controllers/ui_navigation_controlle
 import 'package:eaglenav/features/navigation/routing/controllers/routing_controller.dart';
 import 'package:eaglenav/features/navigation/controllers/guidance_controller.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import '../controllers/navigation_voice_controller.dart';
@@ -32,6 +33,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
   final ValueNotifier<ll.LatLng?> _destinationNotifier = ValueNotifier(null);
   bool _isPreviewFetch = false;
   bool _scanActive = false;
+  ScanMode _scanMode = ScanMode.arrowsSegment;
   bool _scanTipShown = false;
 
   @override
@@ -51,7 +53,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
     _locationController.addListener(_onLocationUpdate);
     _routingController.addListener(_onRoutingUpdate);
 
-    // Defer heavy init so the first frame renders immediately
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _initialize();
     });
@@ -193,7 +194,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
     );
     _fetchPreviewRoute();
 
-    // One-time scan tip
     if (!_scanTipShown) {
       _scanTipShown = true;
       Future.delayed(const Duration(milliseconds: 800), () {
@@ -206,7 +206,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Tap Scan when entering a building to detect obstacles.',
+                    'Tap Scan for walls and stairs with distance. Long-press for objects.',
                     style: TextStyle(fontSize: 13),
                   ),
                 ),
@@ -302,6 +302,15 @@ class _NavigationScreenState extends State<NavigationScreen> {
     }
   }
 
+  // ── Scan triggers ─────────────────────────────────────────
+
+  void _openScan(ScanMode mode) {
+    setState(() {
+      _scanMode = mode;
+      _scanActive = true;
+    });
+  }
+
   // ── Helpers ───────────────────────────────────────────────
 
   Widget _buildBottomPanel() {
@@ -374,7 +383,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
         onDoubleTap: () => _navVoice.announceCurrentHeading(),
         child: Stack(
           children: [
-            // ── Map — position updated imperatively via mapController ──
             FlutterMap(
               mapController: _mapController,
               options: const MapOptions(
@@ -396,7 +404,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
                   minZoom: 12.0,
                 ),
 
-                // Polyline: only rebuilds when route or navigation state changes
                 ListenableBuilder(
                   listenable: Listenable.merge([
                     _routingController,
@@ -436,7 +443,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
                   },
                 ),
 
-                // Markers: only rebuilds when location or destination changes
                 ListenableBuilder(
                   listenable: Listenable.merge([
                     _locationController,
@@ -516,7 +522,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
               ],
             ),
 
-            // ── Navigation overlays — only rebuild on state changes ──
             ListenableBuilder(
               listenable: Listenable.merge([
                 _guidanceController,
@@ -531,7 +536,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
 
                 return Stack(
                   children: [
-                    // ── Search bar ────────────────────────────
                     if (!isNavigating)
                       Positioned(
                         top: topPadding + 16,
@@ -542,7 +546,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
                         ),
                       ),
 
-                    // ── Recenter button ───────────────────────
                     AnimatedPositioned(
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeInOut,
@@ -573,7 +576,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
                       ),
                     ),
 
-                    // ── Zoom buttons ──────────────────────────
                     AnimatedPositioned(
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeInOut,
@@ -603,31 +605,43 @@ class _NavigationScreenState extends State<NavigationScreen> {
                       ),
                     ),
 
-                    // ── Scan FAB ──────────────────────────────
+                    // ── Scan FAB (tap=arrows with distance, long-press=full object detection) ──
                     Positioned(
                       bottom: (isNavigating || isDestinationSelected) ? 240 : 100,
                       right: 80,
                       child: Semantics(
-                        label: 'Obstacle scan',
+                        label:
+                            'Obstacle scan. Tap for walls and stairs with distance. Long press for object detection with distance and size.',
                         button: true,
-                        child: FloatingActionButton.extended(
-                          heroTag: 'scan_btn',
-                          backgroundColor: const Color(0xFF1A1A1A),
-                          elevation: 4,
-                          icon: const Icon(Icons.radar, color: Color(0xFFC9A227)),
-                          label: const Text(
-                            'Scan',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            _openScan(ScanMode.arrowsSegment);
+                          },
+                          onLongPress: () {
+                            HapticFeedback.mediumImpact();
+                            _openScan(ScanMode.fullDetect);
+                          },
+                          child: AbsorbPointer(
+                            child: FloatingActionButton.extended(
+                              heroTag: 'scan_btn',
+                              backgroundColor: const Color(0xFF1A1A1A),
+                              elevation: 4,
+                              icon: const Icon(Icons.radar, color: Color(0xFFC9A227)),
+                              label: const Text(
+                                'Scan',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              onPressed: () {},
                             ),
                           ),
-                          onPressed: () => setState(() => _scanActive = true),
                         ),
                       ),
                     ),
 
-                    // ── Turn-by-turn panel ────────────────────
                     if (currentStep != null && isNavigating)
                       Positioned(
                         top: 76,
@@ -648,7 +662,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
                         ),
                       ),
 
-                    // ── Rerouting banner ──────────────────────
                     if (_routingController.isRerouting)
                       const Positioned(
                         top: 76,
@@ -661,13 +674,12 @@ class _NavigationScreenState extends State<NavigationScreen> {
               },
             ),
 
-            // ── Bottom panel ──────────────────────────────────
             _buildBottomPanel(),
 
-            // ── Scan overlay ───────────────────────────────────
             if (_scanActive)
               Positioned.fill(
                 child: ScanOverlay(
+                  mode: _scanMode,
                   onDismiss: () => setState(() => _scanActive = false),
                 ),
               ),

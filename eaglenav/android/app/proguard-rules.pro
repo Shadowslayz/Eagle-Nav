@@ -1,2 +1,4 @@
 -dontwarn java.beans.**
 -keep class org.yaml.snakeyaml.** { *; }
+-dontwarn java.beans.**
+-keep class org.yaml.snakeyaml.** { *; }

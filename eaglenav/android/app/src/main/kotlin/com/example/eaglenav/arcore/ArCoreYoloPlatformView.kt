@@ -98,15 +98,29 @@ class ArCoreYoloPlatformView(
         } catch (_: Throwable) {
         }
 
-        glSurfaceView.queueEvent {
-            renderer.setSession(null)
-            renderer.dispose()
-            try {
-                session?.close()
-            } catch (_: Throwable) {
-            } finally {
-                session = null
+        // Synchronously dispose: wait briefly for the GL thread to close the
+        // ARCore session, so the next platform view doesn't collide with a
+        // half-closed camera capture session.
+        val latch = java.util.concurrent.CountDownLatch(1)
+        try {
+            glSurfaceView.queueEvent {
+                try {
+                    renderer.setSession(null)
+                    renderer.dispose()
+                    try {
+                        session?.close()
+                    } catch (_: Throwable) {
+                    } finally {
+                        session = null
+                    }
+                } finally {
+                    latch.countDown()
+                }
             }
+            // Wait up to 600ms for the cleanup to complete
+            latch.await(600, java.util.concurrent.TimeUnit.MILLISECONDS)
+        } catch (_: Throwable) {
+            // Don't let cleanup exceptions bubble up
         }
     }
 

@@ -116,6 +116,8 @@ class ArCoreYoloRenderer(
         height: Int,
     ) {
         GLES20.glViewport(0, 0, width, height)
+        lastViewWidth = width
+        lastViewHeight = height
         try {
             val wm = context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
             @Suppress("DEPRECATION")
@@ -124,6 +126,9 @@ class ArCoreYoloRenderer(
         } catch (_: Throwable) {
         }
     }
+
+    @Volatile private var lastViewWidth: Int = 0
+    @Volatile private var lastViewHeight: Int = 0
 
     override fun onDrawFrame(gl: javax.microedition.khronos.opengles.GL10?) {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
@@ -388,9 +393,25 @@ class ArCoreYoloRenderer(
                 )
             )
 
-            val itemPayload = HashMap<String, Any>(10)
+            val itemPayload = HashMap<String, Any>(14)
             itemPayload["class"] = track.className
             itemPayload["confidence"] = track.score.toDouble()
+
+            // Normalized bounding box (0..1) in VIEW coordinates so the Dart
+            // side can compute direction (left/center/right) and on-screen area.
+            val vw = lastViewWidth.toFloat()
+            val vh = lastViewHeight.toFloat()
+            if (vw > 0f && vh > 0f) {
+                val nx = (rectView.left / vw).coerceIn(0f, 1f)
+                val ny = (rectView.top / vh).coerceIn(0f, 1f)
+                val nw = ((rectView.right - rectView.left) / vw).coerceIn(0f, 1f)
+                val nh = ((rectView.bottom - rectView.top) / vh).coerceIn(0f, 1f)
+                itemPayload["x"] = nx.toDouble()
+                itemPayload["y"] = ny.toDouble()
+                itemPayload["w"] = nw.toDouble()
+                itemPayload["h"] = nh.toDouble()
+            }
+
             if (measurement != null) {
                 itemPayload["distance_m"] = measurement.distanceMeters.toDouble()
                 itemPayload["distance_ft"] = measurement.distanceFeet

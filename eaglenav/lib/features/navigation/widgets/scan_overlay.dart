@@ -6,11 +6,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:ultralytics_yolo/ultralytics_yolo.dart';
 
 /// Scan modes triggered from the Scan button on the navigation screen.
-/// - single tap → arrows overlay (camera invisible; map visible through tint)
-/// - long press → full object detection screen (camera visible with labels)
+/// - single tap → arrows overlay
+///     • iOS: full-screen transparent overlay (map shows through)
+///     • Android: 50/50 split — map on top, camera bottom with arrows
+/// - long press → full object detection screen on both platforms
 enum ScanMode { arrowsSegment, fullDetect }
 
 class ScanOverlay extends StatefulWidget {
@@ -44,17 +47,60 @@ class _ScanOverlayState extends State<ScanOverlay> {
   MethodChannel? _arcoreDetectChannel;
   MethodChannel? _arcoreSegChannel;
 
+  bool _isReady = false;
+  bool _hasError = false;
+  String _errorMessage = '';
+
   static const Set<String> _ignored = {
     'ceiling', 'floor', 'sky', 'road', 'sidewalk', 'ground', 'pavement',
   };
 
   bool get _isArrowsMode => widget.mode == ScanMode.arrowsSegment;
 
+  /// On Android arrows mode, use a 50/50 split layout. Otherwise full-screen.
+  bool get _useAndroidSplit => Platform.isAndroid && _isArrowsMode;
+
   @override
   void initState() {
     super.initState();
-    _initTts();
-    if (_isArrowsMode) _scheduleSummary();
+    _init();
+  }
+
+  Future<void> _init() async {
+    try {
+      await _initTts();
+      if (Platform.isAndroid) {
+        final granted = await _ensureCameraPermission();
+        if (!mounted) return;
+        if (!granted) {
+          setState(() {
+            _hasError = true;
+            _errorMessage = 'Camera permission required.';
+            _isReady = false;
+          });
+          return;
+        }
+      }
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (!mounted) return;
+      setState(() => _isReady = true);
+      if (_isArrowsMode) _scheduleSummary();
+    } catch (e) {
+      debugPrint('ScanOverlay init: $e');
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = 'Failed to initialize: $e';
+        });
+      }
+    }
+  }
+
+  Future<bool> _ensureCameraPermission() async {
+    var status = await Permission.camera.status;
+    if (status.isGranted) return true;
+    status = await Permission.camera.request();
+    return status.isGranted;
   }
 
   Future<void> _initTts() async {
@@ -150,7 +196,6 @@ class _ScanOverlayState extends State<ScanOverlay> {
       if (_urgency(area) == 0) continue;
       final dir = _directionFromRect(r.normalizedBox);
 
-      // Use real LiDAR distance from the patched plugin; fall back to area estimate.
       String distStr;
       try {
         final lidar = (r as dynamic).distanceText as String?;
@@ -223,9 +268,14 @@ class _ScanOverlayState extends State<ScanOverlay> {
     items.sort((a, b) => b.area.compareTo(a.area));
 
     for (final d in items) {
-      if (_urgency(d.area) == 0) continue;
+      // Include the detection if it has distance_text (real AR measurement)
+      // OR if it's large enough to matter visually. This ensures walls/stairs
+      // get announced even if their bounding-box area doesn't pass the urgency
+      // threshold (e.g., a wall spanning most of the frame at large distance).
+      final hasDist = d.distanceText.isNotEmpty;
+      if (!hasDist && _urgency(d.area) == 0) continue;
       final dir = _directionFromNormalizedCx(d.cx);
-      final distStr = d.distanceText.isNotEmpty
+      final distStr = hasDist
           ? d.distanceText
           : '${_estimateFeetFromArea(d.area)}ft';
       _buffer[dir]?[d.className] = distStr;
@@ -331,8 +381,284 @@ class _ScanOverlayState extends State<ScanOverlay> {
     }
   }
 
+  void _retry() {
+    setState(() {
+      _hasError = false;
+      _errorMessage = '';
+      _isReady = false;
+    });
+    _init();
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Android arrows mode: 50/50 split anchored to bottom half of screen
+    // (top half stays transparent so the nav screen map shows through).
+    if (_useAndroidSplit) {
+      return _buildAndroidSplit(context);
+    }
+    // All other cases (iOS both modes, Android full-detect): original full-screen layout
+    return _buildFullScreen(context);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Android arrows mode: 50/50 split
+  // ─────────────────────────────────────────────────────────────────────────
+  Widget _buildAndroidSplit(BuildContext context) {
+    final detectModel = 'yolo11n.tflite';
+    final segModel = 'yolo11n-seg.tflite';
+    final screenHeight = MediaQuery.of(context).size.height;
+    final botPad = MediaQuery.of(context).padding.bottom;
+    final topPad = MediaQuery.of(context).padding.top;
+    final panelHeight = screenHeight / 2;
+
+    return GestureDetector(
+      onTap: widget.onDismiss,
+      behavior: HitTestBehavior.translucent,
+      child: Stack(
+        children: [
+          // ── Top half: transparent — the nav screen map shows through ──
+          // (nothing to render here; the Stack in navigation_screen.dart has
+          //  the map below this widget, so the map is visible in this area)
+
+          // ── Top bar floating over the map area ──
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: EdgeInsets.fromLTRB(20, topPad + 12, 20, 16),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.black87, Colors.transparent],
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFC9A227).withOpacity(0.18),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Icon(_modeIcon, color: const Color(0xFFC9A227), size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _modeTitle,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Text(
+                        'Summarizes every 5 seconds',
+                        style: TextStyle(color: Colors.white70, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: widget.onDismiss,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: const Text(
+                        'Done',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Bottom half: camera panel with arrows overlaid ──
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: SizedBox(
+              height: panelHeight,
+              width: double.infinity,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0E0E0E),
+                    border: Border(
+                      top: BorderSide(
+                        color: _threatColor.withOpacity(0.6),
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                  child: Stack(
+                    children: [
+                      // Camera feed — ARCore + YOLO run here
+                      if (_isReady && !_hasError)
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: _AndroidArCoreSegView(
+                              onPlatformViewCreated: _onArCoreSegViewCreated,
+                            ),
+                          ),
+                        ),
+
+                      // Dim overlay so UI pops
+                      if (_isReady && !_hasError)
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: Container(
+                              color: Colors.black.withOpacity(0.35),
+                            ),
+                          ),
+                        ),
+
+                      // Loading state
+                      if (!_isReady && !_hasError)
+                        const Positioned.fill(
+                          child: ColoredBox(
+                            color: Colors.black,
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                color: Color(0xFFC9A227),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                      // Error state
+                      if (_hasError)
+                        Positioned.fill(
+                          child: Container(
+                            color: Colors.black,
+                            child: Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(20),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.error_outline,
+                                        size: 40, color: Colors.red),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      _errorMessage,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(color: Colors.white70),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    ElevatedButton.icon(
+                                      onPressed: _retry,
+                                      icon: const Icon(Icons.refresh),
+                                      label: const Text('Retry'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                      // Threat border pulse
+                      if (_threatLevel > 0.45)
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: _threatColor.withOpacity(0.7 * _threatLevel),
+                                  width: 4,
+                                ),
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(24),
+                                  topRight: Radius.circular(24),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                      // Arrows + summary text at bottom of camera panel
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: Container(
+                          padding: EdgeInsets.fromLTRB(20, 20, 20, botPad + 20),
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [Colors.black, Colors.transparent],
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _DirectionRow(
+                                activeDirection: _activeDirection,
+                                color: _threatColor,
+                              ),
+                              const SizedBox(height: 14),
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 300),
+                                child: Text(
+                                  _summaryText,
+                                  key: ValueKey(_summaryText),
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: _summaryText == 'Path clear' ||
+                                            _summaryText == 'Scanning environment…'
+                                        ? Colors.white70
+                                        : Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    height: 1.3,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Tap anywhere to close',
+                                style: TextStyle(color: Colors.white38, fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // iOS arrows mode + full detect mode: full-screen (unchanged behavior)
+  // ─────────────────────────────────────────────────────────────────────────
+  Widget _buildFullScreen(BuildContext context) {
     final detectModel = Platform.isAndroid ? 'yolo11n.tflite' : 'yolo11n';
     final segModel = Platform.isAndroid ? 'yolo11n-seg.tflite' : 'yolo11n-seg';
     final topPad = MediaQuery.of(context).padding.top;
@@ -342,25 +668,39 @@ class _ScanOverlayState extends State<ScanOverlay> {
       onTap: widget.onDismiss,
       child: Stack(
         children: [
-          // ── Camera: full-screen but invisible in arrows mode ──
-          // Using Opacity(0) instead of offscreen positioning so iOS AVCapture
-          // initializes properly and ARCore on Android has a real surface.
-          SizedBox.expand(
-            child: Opacity(
-              opacity: _isArrowsMode ? 0.0 : 1.0,
-              child: _PrimaryCameraView(
-                mode: widget.mode,
-                detectModel: detectModel,
-                segModel: segModel,
-                onIOSArrowsResult: _handleIOSArrowsResults,
-                onAndroidDetectViewCreated: _onArCoreDetectViewCreated,
-                onAndroidSegViewCreated: _onArCoreSegViewCreated,
-              ),
-            ),
-          ),
+          // Camera: iOS arrows → transparent (map shows), else normal
+          if (_isReady && !_hasError)
+            Platform.isIOS && _isArrowsMode
+                ? Positioned.fill(
+                    child: IgnorePointer(
+                      child: Opacity(
+                        opacity: 0.0,
+                        child: _PrimaryCameraView(
+                          mode: widget.mode,
+                          detectModel: detectModel,
+                          segModel: segModel,
+                          onIOSArrowsResult: _handleIOSArrowsResults,
+                          onAndroidDetectViewCreated: _onArCoreDetectViewCreated,
+                          onAndroidSegViewCreated: _onArCoreSegViewCreated,
+                        ),
+                      ),
+                    ),
+                  )
+                : Positioned.fill(
+                    child: IgnorePointer(
+                      child: _PrimaryCameraView(
+                        mode: widget.mode,
+                        detectModel: detectModel,
+                        segModel: segModel,
+                        onIOSArrowsResult: _handleIOSArrowsResults,
+                        onAndroidDetectViewCreated: _onArCoreDetectViewCreated,
+                        onAndroidSegViewCreated: _onArCoreSegViewCreated,
+                      ),
+                    ),
+                  ),
 
-          // ── Arrows mode: tinted gradient so the map shows through ──
-          if (_isArrowsMode)
+          // iOS arrows mode tint
+          if (_isArrowsMode && Platform.isIOS && _isReady && !_hasError)
             Positioned.fill(
               child: IgnorePointer(
                 child: Container(
@@ -378,7 +718,52 @@ class _ScanOverlayState extends State<ScanOverlay> {
               ),
             ),
 
-          // ── Threat border pulse (arrows mode only) ────────────
+          // Loading / error
+          if (_hasError)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black87,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Camera failed to start',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _errorMessage,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                        const SizedBox(height: 24),
+                        ElevatedButton.icon(
+                          onPressed: _retry,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          if (!_isReady && !_hasError)
+            const Positioned.fill(
+              child: IgnorePointer(
+                child: Center(
+                  child: CircularProgressIndicator(color: Color(0xFFC9A227)),
+                ),
+              ),
+            ),
+
+          // Threat border pulse for full-screen arrows
           if (_isArrowsMode && _threatLevel > 0.45)
             Positioned.fill(
               child: IgnorePointer(
@@ -394,7 +779,7 @@ class _ScanOverlayState extends State<ScanOverlay> {
               ),
             ),
 
-          // ── Top bar ───────────────────────────────────────────
+          // Top bar
           Positioned(
             top: 0,
             left: 0,
@@ -462,7 +847,7 @@ class _ScanOverlayState extends State<ScanOverlay> {
             ),
           ),
 
-          // ── Bottom HUD ────────────────────────────────────────
+          // Bottom HUD
           Positioned(
             bottom: 0,
             left: 0,
@@ -679,8 +1064,8 @@ class _Arrow extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
-      width: active ? 60 : 48,
-      height: active ? 60 : 48,
+      width: active ? 56 : 44,
+      height: active ? 56 : 44,
       decoration: BoxDecoration(
         color: active ? color.withOpacity(0.22) : Colors.white.withOpacity(0.07),
         shape: BoxShape.circle,
@@ -689,7 +1074,7 @@ class _Arrow extends StatelessWidget {
           width: active ? 2.5 : 1,
         ),
       ),
-      child: Icon(icon, color: active ? color : Colors.white30, size: active ? 28 : 22),
+      child: Icon(icon, color: active ? color : Colors.white30, size: active ? 26 : 20),
     );
   }
 }

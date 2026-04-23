@@ -96,18 +96,19 @@ class NavigationInstructionEnhancer {
         );
 
       // ── DESTINATION ──────────────────────────────────────
+      // ── ARRIVAL ──────────────────────────────────────────
+      // Use the live compass bearing to tell the user which way to face
+      // to find the door, rather than Valhalla's path-relative left/right
+      // (which assumes the user is still oriented along the final segment).
       case 4:
       case 5:
       case 6:
+        final doorDirection = _arrivalDirection(relAngle);
         return EnhancedInstruction(
           spokenText:
-              'You have arrived at your destination. '
-              'It should be ${maneuverType == 5
-                  ? "to your right"
-                  : maneuverType == 6
-                  ? "to your left"
-                  : "nearby"}.',
-          displayText: 'Arrived',
+              'You have arrived at the entrance. '
+              'The door should be $doorDirection.',
+          displayText: 'Arrived at entrance',
           targetBearing: targetBearing,
           distanceMeters: 0,
         );
@@ -271,10 +272,25 @@ class NavigationInstructionEnhancer {
     final abs = relAngle.abs();
     final dir = relAngle >= 0 ? 'right' : 'left';
     if (abs < 10) return 'Go straight ahead';
-    if (abs < 30) return 'Slightly to the $dir (${abs.round()} degrees)';
-    if (abs < 60) return 'Turn $dir about ${abs.round()} degrees';
-    if (abs < 120) return 'Turn $dir about 90 degrees';
+    if (abs < 30) return 'Slightly to the $dir';
+    if (abs < 60) return 'Turn $dir';
+    if (abs < 120) return 'Turn $dir';
     if (abs < 160) return 'Sharp turn to the $dir';
     return 'Turn completely around';
+  }
+
+  /// Converts a relative angle (degrees, positive = right of user heading)
+  /// into a plain-language direction the user can act on without sight.
+  /// Mirrors LandmarkService's phrasing so the "arrived" cue and the
+  /// double-tap landmark cue speak the same directional vocabulary.
+  String _arrivalDirection(double relAngle) {
+    final abs = relAngle.abs();
+    final side = relAngle >= 0 ? 'right' : 'left';
+
+    if (abs <= 22.5) return 'directly in front of you';
+    if (abs <= 67.5) return 'to your front $side';
+    if (abs <= 112.5) return 'to your $side';
+    if (abs <= 157.5) return 'to your rear $side';
+    return 'behind you';
   }
 }

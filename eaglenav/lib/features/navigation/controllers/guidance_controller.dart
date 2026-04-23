@@ -144,10 +144,10 @@ class GuidanceController extends ChangeNotifier {
     final finalStep = steps.last;
     final distanceToDestination = _calculateDistance(
       position,
-      finalStep.location,
+      finalStep.endLocation,
     );
 
-    if (distanceToDestination <= 15.0) {
+    if (distanceToDestination <= 8.0) {
       _handleArrival(finalStep);
       return;
     }
@@ -164,13 +164,13 @@ class GuidanceController extends ChangeNotifier {
       final distanceToStepEnd = _calculateDistance(position, step.endLocation);
       final isLastStep = i == steps.length - 1;
 
-      // Near-arrival catch — on the last or second-to-last step, treat
+      /*  // Near-arrival catch — on the last or second-to-last step, treat
       // a close approach as arrival in case the global check above missed
       // (destination and final step endpoint may be slightly offset).
       if (i >= steps.length - 2 && distanceToStepEnd <= stepCompleteMeters) {
         _handleArrival(steps.last);
         return;
-      }
+      } */
 
       // Final-step arrival — preserved for the steps.length == 1 case.
       if (isLastStep && distanceToStepEnd <= stepCompleteMeters) {

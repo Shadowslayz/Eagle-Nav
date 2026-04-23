@@ -8,11 +8,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:ultralytics_yolo/ultralytics_yolo.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Scan modes triggered from the Scan button on the navigation screen.
 /// - single tap → arrows overlay
 ///     • iOS: full-screen transparent overlay (map shows through)
-///     • Android: 50/50 split — map on top, camera bottom with arrows
+///     • Android: keep the existing working dual-YOLO setup
 /// - long press → full object detection screen on both platforms
 enum ScanMode { arrowsSegment, fullDetect }
 
@@ -52,13 +53,21 @@ class _ScanOverlayState extends State<ScanOverlay> {
   String _errorMessage = '';
 
   static const Set<String> _ignored = {
-    'ceiling', 'floor', 'sky', 'road', 'sidewalk', 'ground', 'pavement',
+    'ceiling',
+    'floor',
+    'sky',
+    'road',
+    'sidewalk',
+    'ground',
+    'pavement',
   };
 
   bool get _isArrowsMode => widget.mode == ScanMode.arrowsSegment;
-
-  /// On Android arrows mode, use a 50/50 split layout. Otherwise full-screen.
-  bool get _useAndroidSplit => Platform.isAndroid && _isArrowsMode;
+  bool _developerMode = false;
+  bool _showDebugButton = true;
+  bool _showDebugCamera = false;
+  bool _showIOSDebugCamera = false;
+  bool _showSegDebug = false;
 
   @override
   void initState() {
@@ -69,6 +78,7 @@ class _ScanOverlayState extends State<ScanOverlay> {
   Future<void> _init() async {
     try {
       await _initTts();
+
       if (Platform.isAndroid) {
         final granted = await _ensureCameraPermission();
         if (!mounted) return;
@@ -81,10 +91,24 @@ class _ScanOverlayState extends State<ScanOverlay> {
           return;
         }
       }
+
       await Future.delayed(const Duration(milliseconds: 500));
       if (!mounted) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      _developerMode = prefs.getBool('developerMode') ?? false;
+      _showDebugButton = prefs.getBool('showScanDebugButton') ?? true;
+
       setState(() => _isReady = true);
-      if (_isArrowsMode) _scheduleSummary();
+
+      if (!_developerMode || !_showDebugButton) {
+        _showDebugCamera = false;
+        _showIOSDebugCamera = false;
+      }
+
+      if (_isArrowsMode) {
+        _scheduleSummary();
+      }
     } catch (e) {
       debugPrint('ScanOverlay init: $e');
       if (mounted) {
@@ -120,12 +144,20 @@ class _ScanOverlayState extends State<ScanOverlay> {
 
   Future<void> _pauseArCore(MethodChannel? c) async {
     if (c == null) return;
-    try { await c.invokeMethod('pause'); } catch (e) { debugPrint('ARCore pause: $e'); }
+    try {
+      await c.invokeMethod('pause');
+    } catch (e) {
+      debugPrint('ARCore pause: $e');
+    }
   }
 
   Future<void> _resumeArCore(MethodChannel? c) async {
     if (c == null) return;
-    try { await c.invokeMethod('resume'); } catch (e) { debugPrint('ARCore resume: $e'); }
+    try {
+      await c.invokeMethod('resume');
+    } catch (e) {
+      debugPrint('ARCore resume: $e');
+    }
   }
 
   String _directionFromNormalizedCx(double cx) {
@@ -180,6 +212,7 @@ class _ScanOverlayState extends State<ScanOverlay> {
     return '${totalFeet}ft';
   }
 
+  // iOS behavior from file 2
   void _handleIOSArrowsResults(List<YOLOResult> results) {
     if (!mounted || !_isArrowsMode) return;
 
@@ -189,7 +222,60 @@ class _ScanOverlayState extends State<ScanOverlay> {
 
     if (relevant.isEmpty) return;
 
-    relevant.sort((a, b) => _area(b.normalizedBox).compareTo(_area(a.normalizedBox)));
+    relevant.sort(
+      (a, b) => _area(b.normalizedBox).compareTo(_area(a.normalizedBox)),
+    );
+
+    for (final r in relevant) {
+      final area = _area(r.normalizedBox);
+      if (_urgency(area) == 0) continue;
+      final dir = _directionFromRect(r.normalizedBox);
+
+      String distStr;
+      try {
+        final lidar = (r as dynamic).distanceText as String?;
+        distStr = (lidar != null && lidar.isNotEmpty)
+            ? lidar
+            : '${_estimateFeetFromArea(area)}ft';
+      } catch (_) {
+        distStr = '${_estimateFeetFromArea(area)}ft';
+      }
+
+      _buffer[dir]?[r.className.toLowerCase()] = distStr;
+    }
+
+    final topArea = _area(relevant.first.normalizedBox);
+    final topDir = _directionFromRect(relevant.first.normalizedBox);
+
+    setState(() {
+      _threatLevel = (topArea / 0.35).clamp(0.0, 1.0);
+      _activeDirection = topDir;
+    });
+
+    _triggerHaptics(_urgency(topArea));
+  }
+
+  void _handleDetectResults(List<YOLOResult> results) {
+    _processResults(results);
+  }
+
+  void _handleSegResults(List<YOLOResult> results) {
+    _processResults(results);
+  }
+
+  // Android behavior from file 1
+  void _processResults(List<YOLOResult> results) {
+    if (!mounted) return;
+
+    final relevant = results.where((r) =>
+        r.className.isNotEmpty &&
+        !_ignored.contains(r.className.toLowerCase())).toList();
+
+    if (relevant.isEmpty) return;
+
+    relevant.sort(
+      (a, b) => _area(b.normalizedBox).compareTo(_area(a.normalizedBox)),
+    );
 
     for (final r in relevant) {
       final area = _area(r.normalizedBox);
@@ -234,7 +320,9 @@ class _ScanOverlayState extends State<ScanOverlay> {
       if (call.method != 'onDetections') return;
       if (!_isArrowsMode) return;
       final arguments = call.arguments;
-      final payload = arguments is List ? List<dynamic>.from(arguments) : const <dynamic>[];
+      final payload = arguments is List
+          ? List<dynamic>.from(arguments)
+          : const <dynamic>[];
       _processAndroidPayloadForArrows(payload);
     });
     _resumeArCore(channel);
@@ -251,7 +339,6 @@ class _ScanOverlayState extends State<ScanOverlay> {
       if (_ignored.contains(cls)) continue;
 
       final x = (raw['x'] as num?)?.toDouble() ?? 0.0;
-      final y = (raw['y'] as num?)?.toDouble() ?? 0.0;
       final w = (raw['w'] as num?)?.toDouble() ?? 0.0;
       final h = (raw['h'] as num?)?.toDouble() ?? 0.0;
       final distText = (raw['distance_text'] as String?) ?? '';
@@ -268,16 +355,11 @@ class _ScanOverlayState extends State<ScanOverlay> {
     items.sort((a, b) => b.area.compareTo(a.area));
 
     for (final d in items) {
-      // Include the detection if it has distance_text (real AR measurement)
-      // OR if it's large enough to matter visually. This ensures walls/stairs
-      // get announced even if their bounding-box area doesn't pass the urgency
-      // threshold (e.g., a wall spanning most of the frame at large distance).
       final hasDist = d.distanceText.isNotEmpty;
       if (!hasDist && _urgency(d.area) == 0) continue;
       final dir = _directionFromNormalizedCx(d.cx);
-      final distStr = hasDist
-          ? d.distanceText
-          : '${_estimateFeetFromArea(d.area)}ft';
+      final distStr =
+          hasDist ? d.distanceText : '${_estimateFeetFromArea(d.area)}ft';
       _buffer[dir]?[d.className] = distStr;
     }
 
@@ -293,7 +375,10 @@ class _ScanOverlayState extends State<ScanOverlay> {
   void _triggerHaptics(int urgency) {
     if (urgency >= 3) {
       HapticFeedback.heavyImpact();
-      Future.delayed(const Duration(milliseconds: 130), HapticFeedback.heavyImpact);
+      Future.delayed(
+        const Duration(milliseconds: 130),
+        HapticFeedback.heavyImpact,
+      );
     } else if (urgency == 2) {
       HapticFeedback.mediumImpact();
     }
@@ -324,9 +409,13 @@ class _ScanOverlayState extends State<ScanOverlay> {
         final feetOnly = _toFeetOnly(e.value);
 
         String locationPhrase;
-        if (dir == 'AHEAD') locationPhrase = 'ahead';
-        else if (dir == 'LEFT') locationPhrase = 'on your left';
-        else locationPhrase = 'on your right';
+        if (dir == 'AHEAD') {
+          locationPhrase = 'ahead';
+        } else if (dir == 'LEFT') {
+          locationPhrase = 'on your left';
+        } else {
+          locationPhrase = 'on your right';
+        }
 
         if (feetOnly.isEmpty) {
           pieces.add('$name $locationPhrase');
@@ -369,15 +458,19 @@ class _ScanOverlayState extends State<ScanOverlay> {
 
   String get _modeTitle {
     switch (widget.mode) {
-      case ScanMode.arrowsSegment: return 'Obstacle Scan';
-      case ScanMode.fullDetect: return 'Objects + Distance + Size';
+      case ScanMode.arrowsSegment:
+        return 'Obstacle Scan';
+      case ScanMode.fullDetect:
+        return 'Objects + Distance + Size';
     }
   }
 
   IconData get _modeIcon {
     switch (widget.mode) {
-      case ScanMode.arrowsSegment: return Icons.radar;
-      case ScanMode.fullDetect: return Icons.center_focus_strong;
+      case ScanMode.arrowsSegment:
+        return Icons.radar;
+      case ScanMode.fullDetect:
+        return Icons.center_focus_strong;
     }
   }
 
@@ -392,48 +485,83 @@ class _ScanOverlayState extends State<ScanOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    // Android arrows mode: 50/50 split anchored to bottom half of screen
-    // (top half stays transparent so the nav screen map shows through).
-    if (_useAndroidSplit) {
-      return _buildAndroidSplit(context);
+    if (Platform.isAndroid) {
+      return _buildAndroidFromFile1(context);
     }
-    // All other cases (iOS both modes, Android full-detect): original full-screen layout
-    return _buildFullScreen(context);
+    return _buildIOSFromFile2(context);
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Android arrows mode: 50/50 split
-  // ─────────────────────────────────────────────────────────────────────────
-  Widget _buildAndroidSplit(BuildContext context) {
+  // Android from file 1
+  Widget _buildAndroidFromFile1(BuildContext context) {
     final detectModel = 'yolo11n.tflite';
     final segModel = 'yolo11n-seg.tflite';
-    final screenHeight = MediaQuery.of(context).size.height;
-    final botPad = MediaQuery.of(context).padding.bottom;
     final topPad = MediaQuery.of(context).padding.top;
-    final panelHeight = screenHeight / 2;
+    final botPad = MediaQuery.of(context).padding.bottom;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final debugPanelHeight = screenHeight * 0.38;
 
     return GestureDetector(
       onTap: widget.onDismiss,
       behavior: HitTestBehavior.translucent,
       child: Stack(
         children: [
-          // ── Top half: transparent — the nav screen map shows through ──
-          // (nothing to render here; the Stack in navigation_screen.dart has
-          //  the map below this widget, so the map is visible in this area)
+          // Hidden detection logic still runs
+          if (!_showDebugCamera)
+            Positioned(
+              left: 0,
+              top: 0,
+              width: 1,
+              height: 1,
+              child: YOLOView(
+                key: const ValueKey('scan_detect_hidden'),
+                modelPath: detectModel,
+                task: YOLOTask.detect,
+                confidenceThreshold: 0.35,
+                showOverlays: false,
+                onResult: _handleDetectResults,
+              ),
+            ),
 
-          // ── Top bar floating over the map area ──
+          // Hidden segmentation logic still runs unless visible seg debug is open
+          if (!_showDebugCamera || !_showSegDebug)
+            Positioned(
+              left: 0,
+              top: 0,
+              width: 1,
+              height: 1,
+              child: YOLOView(
+                key: const ValueKey('scan_seg_hidden'),
+                modelPath: segModel,
+                task: YOLOTask.segment,
+                confidenceThreshold: 0.35,
+                showOverlays: false,
+                onResult: _handleSegResults,
+              ),
+            ),
+
+          if (_threatLevel > 0.45)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: _threatColor.withOpacity(0.7 * _threatLevel),
+                      width: 6,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
           Positioned(
             top: 0,
             left: 0,
             right: 0,
             child: Container(
               padding: EdgeInsets.fromLTRB(20, topPad + 12, 20, 16),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.black87, Colors.transparent],
-                ),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.25),
               ),
               child: Row(
                 children: [
@@ -443,23 +571,30 @@ class _ScanOverlayState extends State<ScanOverlay> {
                       color: const Color(0xFFC9A227).withOpacity(0.18),
                       borderRadius: BorderRadius.circular(9),
                     ),
-                    child: Icon(_modeIcon, color: const Color(0xFFC9A227), size: 18),
+                    child: const Icon(
+                      Icons.radar,
+                      color: Color(0xFFC9A227),
+                      size: 18,
+                    ),
                   ),
                   const SizedBox(width: 10),
-                  Column(
+                  const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _modeTitle,
-                        style: const TextStyle(
+                        'Obstacle Scan',
+                        style: TextStyle(
                           color: Colors.white,
-                          fontSize: 15,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const Text(
+                      Text(
                         'Summarizes every 5 seconds',
-                        style: TextStyle(color: Colors.white70, fontSize: 11),
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                        ),
                       ),
                     ],
                   ),
@@ -467,7 +602,10 @@ class _ScanOverlayState extends State<ScanOverlay> {
                   GestureDetector(
                     onTap: widget.onDismiss,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(20),
@@ -488,159 +626,120 @@ class _ScanOverlayState extends State<ScanOverlay> {
             ),
           ),
 
-          // ── Bottom half: camera panel with arrows overlaid ──
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: SizedBox(
-              height: panelHeight,
-              width: double.infinity,
-              child: ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  topRight: Radius.circular(24),
-                ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0E0E0E),
-                    border: Border(
-                      top: BorderSide(
-                        color: _threatColor.withOpacity(0.6),
-                        width: 2,
+          // Developer-only debug toggle
+          if (_developerMode && _showDebugButton)
+            Positioned(
+              top: topPad + 78,
+              right: 20,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _showDebugCamera = !_showDebugCamera;
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.55),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: Text(
+                        _showDebugCamera ? 'Hide Debug' : 'Show Debug',
+                        style: const TextStyle(color: Colors.white),
                       ),
                     ),
                   ),
+
+                  const SizedBox(height: 8),
+
+                  if (_showDebugCamera)
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _showSegDebug = !_showSegDebug;
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.55),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white24),
+                        ),
+                        child: Text(
+                          _showSegDebug ? 'Mode: Segment' : 'Mode: Detect',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+          // Developer debug camera panel
+          if (_developerMode && _showDebugCamera)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: botPad + 150,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Container(
+                  height: debugPanelHeight,
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    border: Border.all(
+                      color: const Color(0xFFC9A227).withOpacity(0.7),
+                      width: 2,
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
                   child: Stack(
                     children: [
-                      // Camera feed — ARCore + YOLO run here
-                      if (_isReady && !_hasError)
-                        Positioned.fill(
-                          child: IgnorePointer(
-                            child: _AndroidArCoreSegView(
-                              onPlatformViewCreated: _onArCoreSegViewCreated,
-                            ),
-                          ),
+                      Positioned.fill(
+                      child: YOLOView(
+                        key: ValueKey(
+                          _showSegDebug
+                              ? 'scan_seg_debug_visible'
+                              : 'scan_detect_debug_visible',
                         ),
-
-                      // Dim overlay so UI pops
-                      if (_isReady && !_hasError)
-                        Positioned.fill(
-                          child: IgnorePointer(
-                            child: Container(
-                              color: Colors.black.withOpacity(0.35),
-                            ),
-                          ),
-                        ),
-
-                      // Loading state
-                      if (!_isReady && !_hasError)
-                        const Positioned.fill(
-                          child: ColoredBox(
-                            color: Colors.black,
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                color: Color(0xFFC9A227),
-                              ),
-                            ),
-                          ),
-                        ),
-
-                      // Error state
-                      if (_hasError)
-                        Positioned.fill(
-                          child: Container(
-                            color: Colors.black,
-                            child: Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(20),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.error_outline,
-                                        size: 40, color: Colors.red),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      _errorMessage,
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(color: Colors.white70),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    ElevatedButton.icon(
-                                      onPressed: _retry,
-                                      icon: const Icon(Icons.refresh),
-                                      label: const Text('Retry'),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-
-                      // Threat border pulse
-                      if (_threatLevel > 0.45)
-                        Positioned.fill(
-                          child: IgnorePointer(
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 150),
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: _threatColor.withOpacity(0.7 * _threatLevel),
-                                  width: 4,
-                                ),
-                                borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(24),
-                                  topRight: Radius.circular(24),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-
-                      // Arrows + summary text at bottom of camera panel
+                        modelPath: _showSegDebug ? segModel : detectModel,
+                        task: _showSegDebug ? YOLOTask.segment : YOLOTask.detect,
+                        confidenceThreshold: 0.35,
+                        showOverlays: true,
+                        onResult:
+                            _showSegDebug ? _handleSegResults : _handleDetectResults,
+                      ),
+                      ),
                       Positioned(
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
+                        top: 10,
+                        left: 10,
                         child: Container(
-                          padding: EdgeInsets.fromLTRB(20, 20, 20, botPad + 20),
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.bottomCenter,
-                              end: Alignment.topCenter,
-                              colors: [Colors.black, Colors.transparent],
-                            ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
                           ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _DirectionRow(
-                                activeDirection: _activeDirection,
-                                color: _threatColor,
-                              ),
-                              const SizedBox(height: 14),
-                              AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 300),
-                                child: Text(
-                                  _summaryText,
-                                  key: ValueKey(_summaryText),
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: _summaryText == 'Path clear' ||
-                                            _summaryText == 'Scanning environment…'
-                                        ? Colors.white70
-                                        : Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    height: 1.3,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Tap anywhere to close',
-                                style: TextStyle(color: Colors.white38, fontSize: 11),
-                              ),
-                            ],
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.55),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'Developer Debug View',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
@@ -649,43 +748,90 @@ class _ScanOverlayState extends State<ScanOverlay> {
                 ),
               ),
             ),
+
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: EdgeInsets.fromLTRB(24, 28, 24, botPad + 28),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.25),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _DirectionRow(
+                    activeDirection: _activeDirection,
+                    color: _threatColor,
+                  ),
+                  const SizedBox(height: 16),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: Text(
+                      _summaryText,
+                      key: ValueKey(_summaryText),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: _summaryText == 'Path clear' ||
+                                _summaryText == 'Scanning environment…'
+                            ? Colors.white70
+                            : Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Tap anywhere to close',
+                    style: TextStyle(
+                      color: Colors.white30,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // iOS arrows mode + full detect mode: full-screen (unchanged behavior)
-  // ─────────────────────────────────────────────────────────────────────────
-  Widget _buildFullScreen(BuildContext context) {
-    final detectModel = Platform.isAndroid ? 'yolo11n.tflite' : 'yolo11n';
-    final segModel = Platform.isAndroid ? 'yolo11n-seg.tflite' : 'yolo11n-seg';
+  // iOS from file 2
+  Widget _buildIOSFromFile2(BuildContext context) {
+    final detectModel = 'yolo11n';
+    final segModel = 'yolo11n-seg';
     final topPad = MediaQuery.of(context).padding.top;
     final botPad = MediaQuery.of(context).padding.bottom;
+    final debugPanelHeight = MediaQuery.of(context).size.height * 0.38;
 
     return GestureDetector(
       onTap: widget.onDismiss,
       child: Stack(
         children: [
-          // Camera: iOS arrows → transparent (map shows), else normal
           if (_isReady && !_hasError)
-            Platform.isIOS && _isArrowsMode
-                ? Positioned.fill(
-                    child: IgnorePointer(
-                      child: Opacity(
-                        opacity: 0.0,
-                        child: _PrimaryCameraView(
-                          mode: widget.mode,
-                          detectModel: detectModel,
-                          segModel: segModel,
-                          onIOSArrowsResult: _handleIOSArrowsResults,
-                          onAndroidDetectViewCreated: _onArCoreDetectViewCreated,
-                          onAndroidSegViewCreated: _onArCoreSegViewCreated,
+            _isArrowsMode
+                ? (!_showIOSDebugCamera
+                    ? Positioned.fill(
+                        child: IgnorePointer(
+                          child: Opacity(
+                            opacity: 0.0,
+                            child: _PrimaryCameraView(
+                              mode: widget.mode,
+                              detectModel: detectModel,
+                              segModel: segModel,
+                              onIOSArrowsResult: _handleIOSArrowsResults,
+                              onAndroidDetectViewCreated:
+                                  _onArCoreDetectViewCreated,
+                              onAndroidSegViewCreated: _onArCoreSegViewCreated,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  )
+                      )
+                    : const SizedBox.shrink())
                 : Positioned.fill(
                     child: IgnorePointer(
                       child: _PrimaryCameraView(
@@ -699,8 +845,7 @@ class _ScanOverlayState extends State<ScanOverlay> {
                     ),
                   ),
 
-          // iOS arrows mode tint
-          if (_isArrowsMode && Platform.isIOS && _isReady && !_hasError)
+          if (_isArrowsMode && _isReady && !_hasError)
             Positioned.fill(
               child: IgnorePointer(
                 child: Container(
@@ -718,7 +863,6 @@ class _ScanOverlayState extends State<ScanOverlay> {
               ),
             ),
 
-          // Loading / error
           if (_hasError)
             Positioned.fill(
               child: Container(
@@ -729,11 +873,18 @@ class _ScanOverlayState extends State<ScanOverlay> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                        const Icon(
+                          Icons.error_outline,
+                          size: 48,
+                          color: Colors.red,
+                        ),
                         const SizedBox(height: 16),
                         Text(
                           'Camera failed to start',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white),
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(color: Colors.white),
                         ),
                         const SizedBox(height: 8),
                         Text(
@@ -758,12 +909,13 @@ class _ScanOverlayState extends State<ScanOverlay> {
             const Positioned.fill(
               child: IgnorePointer(
                 child: Center(
-                  child: CircularProgressIndicator(color: Color(0xFFC9A227)),
+                  child: CircularProgressIndicator(
+                    color: Color(0xFFC9A227),
+                  ),
                 ),
               ),
             ),
 
-          // Threat border pulse for full-screen arrows
           if (_isArrowsMode && _threatLevel > 0.45)
             Positioned.fill(
               child: IgnorePointer(
@@ -779,7 +931,6 @@ class _ScanOverlayState extends State<ScanOverlay> {
               ),
             ),
 
-          // Top bar
           Positioned(
             top: 0,
             left: 0,
@@ -801,7 +952,11 @@ class _ScanOverlayState extends State<ScanOverlay> {
                       color: const Color(0xFFC9A227).withOpacity(0.18),
                       borderRadius: BorderRadius.circular(9),
                     ),
-                    child: Icon(_modeIcon, color: const Color(0xFFC9A227), size: 18),
+                    child: Icon(
+                      _modeIcon,
+                      color: const Color(0xFFC9A227),
+                      size: 18,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Column(
@@ -818,7 +973,10 @@ class _ScanOverlayState extends State<ScanOverlay> {
                       if (_isArrowsMode)
                         const Text(
                           'Summarizes every 5 seconds',
-                          style: TextStyle(color: Colors.white70, fontSize: 11),
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                          ),
                         ),
                     ],
                   ),
@@ -826,7 +984,10 @@ class _ScanOverlayState extends State<ScanOverlay> {
                   GestureDetector(
                     onTap: widget.onDismiss,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(20),
@@ -847,7 +1008,133 @@ class _ScanOverlayState extends State<ScanOverlay> {
             ),
           ),
 
-          // Bottom HUD
+          if (_developerMode && _showDebugButton && _isArrowsMode)
+            Positioned(
+              top: topPad + 78,
+              right: 20,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _showIOSDebugCamera = !_showIOSDebugCamera;
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.55),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: Text(
+                        _showIOSDebugCamera ? 'Hide iOS Debug' : 'Show iOS Debug',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (_showIOSDebugCamera)
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _showSegDebug = !_showSegDebug;
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.55),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white24),
+                        ),
+                        child: Text(
+                          _showSegDebug ? 'Mode: Segment' : 'Mode: Detect',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+          if (_developerMode &&
+              _showDebugButton &&
+              _showIOSDebugCamera &&
+              _isArrowsMode)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: botPad + 150,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Container(
+                  height: debugPanelHeight,
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    border: Border.all(
+                      color: const Color(0xFFC9A227).withOpacity(0.7),
+                      width: 2,
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: YOLOView(
+                          key: ValueKey(
+                            _showSegDebug
+                                ? 'ios_seg_debug_visible'
+                                : 'ios_detect_debug_visible',
+                          ),
+                          modelPath: _showSegDebug ? segModel : detectModel,
+                          task: _showSegDebug
+                              ? YOLOTask.segment
+                              : YOLOTask.detect,
+                          confidenceThreshold: 0.55,
+                          showOverlays: true,
+                          onResult: _showSegDebug
+                              ? _handleIOSArrowsResults
+                              : _handleDetectResults,
+                        ),
+                      ),
+                      Positioned(
+                        top: 10,
+                        left: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.55),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            _showSegDebug
+                                ? 'iOS Debug View - Segment'
+                                : 'iOS Debug View - Detect',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
           Positioned(
             bottom: 0,
             left: 0,
@@ -925,9 +1212,13 @@ class _PrimaryCameraView extends StatelessWidget {
     if (Platform.isAndroid) {
       switch (mode) {
         case ScanMode.arrowsSegment:
-          return _AndroidArCoreSegView(onPlatformViewCreated: onAndroidSegViewCreated);
+          return _AndroidArCoreSegView(
+            onPlatformViewCreated: onAndroidSegViewCreated,
+          );
         case ScanMode.fullDetect:
-          return _AndroidArCoreYoloView(onPlatformViewCreated: onAndroidDetectViewCreated);
+          return _AndroidArCoreYoloView(
+            onPlatformViewCreated: onAndroidDetectViewCreated,
+          );
       }
     }
 
@@ -1043,11 +1334,23 @@ class _DirectionRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _Arrow(icon: Icons.arrow_back_rounded, active: activeDirection == 'LEFT', color: color),
+        _Arrow(
+          icon: Icons.arrow_back_rounded,
+          active: activeDirection == 'LEFT',
+          color: color,
+        ),
         const SizedBox(width: 12),
-        _Arrow(icon: Icons.arrow_upward_rounded, active: activeDirection == 'AHEAD', color: color),
+        _Arrow(
+          icon: Icons.arrow_upward_rounded,
+          active: activeDirection == 'AHEAD',
+          color: color,
+        ),
         const SizedBox(width: 12),
-        _Arrow(icon: Icons.arrow_forward_rounded, active: activeDirection == 'RIGHT', color: color),
+        _Arrow(
+          icon: Icons.arrow_forward_rounded,
+          active: activeDirection == 'RIGHT',
+          color: color,
+        ),
       ],
     );
   }
@@ -1074,7 +1377,11 @@ class _Arrow extends StatelessWidget {
           width: active ? 2.5 : 1,
         ),
       ),
-      child: Icon(icon, color: active ? color : Colors.white30, size: active ? 26 : 20),
+      child: Icon(
+        icon,
+        color: active ? color : Colors.white30,
+        size: active ? 26 : 20,
+      ),
     );
   }
 }

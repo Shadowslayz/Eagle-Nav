@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/tts_service.dart';
 import '../main.dart';
 
@@ -22,6 +23,66 @@ class _ProfileTabState extends State<ProfileTab> {
   bool announcePeople = false;
   bool avoidStairs = true;
   bool wheelchairAccessibleRoutes = true;
+  bool developerMode = false;
+  bool showScanDebugButton = true;
+
+  int summaryIntervalSeconds = 5;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    setState(() {
+      voiceGuidance = prefs.getBool('voiceGuidance') ?? true;
+      highContrast = prefs.getBool('highContrast') ?? false;
+      audioHaptics = prefs.getBool('audioHaptics') ?? true;
+      rumbleHaptics = prefs.getBool('rumbleHaptics') ?? false;
+      aroundPeople = prefs.getBool('aroundPeople') ?? true;
+      colorBlindMode = prefs.getString('colorBlindMode') ?? 'None';
+      colorBlindIntensity = prefs.getDouble('colorBlindIntensity') ?? 0.5;
+      announceObstacles = prefs.getBool('announceObstacles') ?? true;
+      announceLandmarks = prefs.getBool('announceLandmarks') ?? true;
+      announcePeople = prefs.getBool('announcePeople') ?? false;
+      avoidStairs = prefs.getBool('avoidStairs') ?? true;
+      wheelchairAccessibleRoutes =
+          prefs.getBool('wheelchairAccessibleRoutes') ?? true;
+      summaryIntervalSeconds =
+          prefs.getInt('summary_interval_seconds') ?? 5;
+      developerMode = prefs.getBool('developerMode') ?? false;
+      showScanDebugButton = prefs.getBool('showScanDebugButton') ?? true;
+    });
+  }
+
+  Future<void> _saveSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setBool('voiceGuidance', voiceGuidance);
+    await prefs.setBool('highContrast', highContrast);
+    await prefs.setBool('audioHaptics', audioHaptics);
+    await prefs.setBool('rumbleHaptics', rumbleHaptics);
+    await prefs.setBool('aroundPeople', aroundPeople);
+    await prefs.setString('colorBlindMode', colorBlindMode);
+    await prefs.setDouble('colorBlindIntensity', colorBlindIntensity);
+    await prefs.setBool('announceObstacles', announceObstacles);
+    await prefs.setBool('announceLandmarks', announceLandmarks);
+    await prefs.setBool('announcePeople', announcePeople);
+    await prefs.setBool('avoidStairs', avoidStairs);
+    await prefs.setBool(
+      'wheelchairAccessibleRoutes',
+      wheelchairAccessibleRoutes,
+    );
+    await prefs.setInt(
+      'summary_interval_seconds',
+      summaryIntervalSeconds,
+    );
+    await prefs.setBool('developerMode', developerMode);
+    await prefs.setBool('showScanDebugButton', showScanDebugButton);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,24 +112,54 @@ class _ProfileTabState extends State<ProfileTab> {
                   decoration: InputDecoration(
                     labelText: 'Color Blind Mode',
                     labelStyle: const TextStyle(color: Colors.black54),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: const BorderSide(color: csulGold),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                   ),
                   items: const [
                     DropdownMenuItem(value: 'None', child: Text('None')),
-                    DropdownMenuItem(value: 'Protanopia', child: Text('Protanopia (Red-Blind)')),
-                    DropdownMenuItem(value: 'Protanomaly', child: Text('Protanomaly (Weak Red)')),
-                    DropdownMenuItem(value: 'Deuteranopia', child: Text('Deuteranopia (Green-Blind)')),
-                    DropdownMenuItem(value: 'Deuteranomaly', child: Text('Deuteranomaly (Weak Green)')),
-                    DropdownMenuItem(value: 'Tritanopia', child: Text('Tritanopia (Blue-Blind)')),
-                    DropdownMenuItem(value: 'Tritanomaly', child: Text('Tritanomaly (Weak Blue)')),
-                    DropdownMenuItem(value: 'Achromatopsia', child: Text('Achromatopsia (No Color)')),
+                    DropdownMenuItem(
+                      value: 'Protanopia',
+                      child: Text('Protanopia (Red-Blind)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Protanomaly',
+                      child: Text('Protanomaly (Weak Red)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Deuteranopia',
+                      child: Text('Deuteranopia (Green-Blind)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Deuteranomaly',
+                      child: Text('Deuteranomaly (Weak Green)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Tritanopia',
+                      child: Text('Tritanopia (Blue-Blind)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Tritanomaly',
+                      child: Text('Tritanomaly (Weak Blue)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Achromatopsia',
+                      child: Text('Achromatopsia (No Color)'),
+                    ),
                   ],
-                  onChanged: (v) { if (v != null) setState(() => colorBlindMode = v); },
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() => colorBlindMode = v);
+                    }
+                  },
                 ),
               ),
               if (colorBlindMode != 'None')
@@ -79,11 +170,15 @@ class _ProfileTabState extends State<ProfileTab> {
                     children: [
                       Text(
                         'Intensity: ${(colorBlindIntensity * 100).round()}%',
-                        style: const TextStyle(fontSize: 14, color: Colors.black54),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.black54,
+                        ),
                       ),
                       Slider(
                         value: colorBlindIntensity,
-                        onChanged: (v) => setState(() => colorBlindIntensity = v),
+                        onChanged: (v) =>
+                            setState(() => colorBlindIntensity = v),
                         min: 0.0,
                         max: 1.0,
                         divisions: 10,
@@ -111,7 +206,8 @@ class _ProfileTabState extends State<ProfileTab> {
                 title: 'Wheelchair Accessible Routes',
                 subtitle: 'Prioritize accessible paths',
                 value: wheelchairAccessibleRoutes,
-                onChanged: (v) => setState(() => wheelchairAccessibleRoutes = v),
+                onChanged: (v) =>
+                    setState(() => wheelchairAccessibleRoutes = v),
               ),
               const Divider(height: 1),
               _SettingSwitch(
@@ -156,6 +252,43 @@ class _ProfileTabState extends State<ProfileTab> {
                 value: announcePeople,
                 onChanged: (v) => setState(() => announcePeople = v),
               ),
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Scan Summary Interval: $summaryIntervalSeconds seconds',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF1A1A1A),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Slider(
+                      value: summaryIntervalSeconds.toDouble(),
+                      min: 2,
+                      max: 10,
+                      divisions: 8,
+                      label: '$summaryIntervalSeconds s',
+                      onChanged: (value) {
+                        setState(() {
+                          summaryIntervalSeconds = value.round();
+                        });
+                      },
+                    ),
+                    const Text(
+                      'Controls how often obstacle summaries are spoken.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.black45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
 
@@ -179,11 +312,44 @@ class _ProfileTabState extends State<ProfileTab> {
             ],
           ),
 
+          const SizedBox(height: 12),
+
+          _SectionCard(
+            icon: Icons.developer_mode,
+            title: 'Developer Options',
+            children: [
+              _SettingSwitch(
+                title: 'Developer Mode',
+                subtitle: 'Enable debugging tools for scan system',
+                value: developerMode,
+                onChanged: (v) {
+                  setState(() {
+                    developerMode = v;
+                    if (!developerMode) {
+                      showScanDebugButton = false;
+                    }
+                  });
+                },
+              ),
+              const Divider(height: 1),
+              _SettingSwitch(
+                title: 'Show Scan Debug Button',
+                subtitle: 'Allows camera debug view in scan overlay',
+                value: showScanDebugButton,
+                onChanged: developerMode
+                    ? (v) => setState(() => showScanDebugButton = v)
+                    : (_) {},
+              ),
+            ],
+          ),
+
           const SizedBox(height: 24),
 
           ElevatedButton.icon(
             onPressed: () async {
+              await _saveSettings();
               await initTts();
+
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Settings saved')),
@@ -206,7 +372,11 @@ class _SectionCard extends StatelessWidget {
   final String title;
   final List<Widget> children;
 
-  const _SectionCard({required this.icon, required this.title, required this.children});
+  const _SectionCard({
+    required this.icon,
+    required this.title,
+    required this.children,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -258,7 +428,10 @@ class _SettingSwitch extends StatelessWidget {
     return SwitchListTile(
       title: Text(title, style: const TextStyle(fontSize: 15)),
       subtitle: subtitle != null
-          ? Text(subtitle!, style: const TextStyle(fontSize: 12, color: Colors.black45))
+          ? Text(
+              subtitle!,
+              style: const TextStyle(fontSize: 12, color: Colors.black45),
+            )
           : null,
       value: value,
       onChanged: onChanged,

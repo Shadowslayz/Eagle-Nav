@@ -65,22 +65,45 @@ class LocationService {
     }
   }
 
-  // Stream of location updates
+  // Stream of location updates, filtered by accuracy.
+  //
+  // Fixes with OS-reported accuracy worse than [maxAccuracyMeters] are
+  // dropped before entering the controller pipeline. On a campus with
+  // buildings around the user, GPS multipath can produce fixes with
+  // 20m+ error bars — these do more harm than good to threshold-based
+  // step-advance and turn-now logic downstream.
   Stream<ll.LatLng> getLocationStream({
     LocationAccuracy accuracy = LocationAccuracy.high,
     int distanceFilter = 5,
+    double maxAccuracyMeters = 20.0,
   }) {
     return Geolocator.getPositionStream(
-      locationSettings: LocationSettings(
-        accuracy: accuracy,
-        distanceFilter: distanceFilter,
-      ),
-    ).map((position) {
-      debugPrint(
-        'Live location update: ${position.latitude}, ${position.longitude}',
-      );
-      return ll.LatLng(position.latitude, position.longitude);
-    });
+          locationSettings: LocationSettings(
+            accuracy: accuracy,
+            distanceFilter: distanceFilter,
+          ),
+        )
+        .where((position) {
+          // accuracy field is non-nullable on geolocator's Position,
+          // but treat 0.0 as "unknown" and let it through — some
+          // platforms report 0 when they can't estimate the error.
+          final acc = position.accuracy;
+          if (acc > 0 && acc > maxAccuracyMeters) {
+            debugPrint(
+              'Dropping low-accuracy fix: ${acc.toStringAsFixed(1)}m '
+              '(threshold ${maxAccuracyMeters.toStringAsFixed(0)}m)',
+            );
+            return false;
+          }
+          return true;
+        })
+        .map((position) {
+          debugPrint(
+            'Live location update: ${position.latitude}, ${position.longitude} '
+            '(acc ${position.accuracy.toStringAsFixed(1)}m)',
+          );
+          return ll.LatLng(position.latitude, position.longitude);
+        });
   }
 }
 

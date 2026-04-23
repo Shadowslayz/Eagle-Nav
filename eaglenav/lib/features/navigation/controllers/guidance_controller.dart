@@ -36,6 +36,12 @@ class GuidanceController extends ChangeNotifier {
   /// and the controller advances to the next one.
   final double stepCompleteMeters;
 
+  /// Distance to the current step's endpoint as observed on the previous
+  /// GPS tick. Used by [_hasPassedStepEnd] for crossing detection and by
+  /// the catch-up block in [onLocationUpdate] for sustained-drift detection.
+  /// Reset to null whenever the active step changes.
+  double? _lastDistanceToStepEnd;
+
   // ── State ─────────────────────────────────────────────────
   ValhallaRoute? _currentRoute;
   int _currentStepIndex = 0;
@@ -97,6 +103,7 @@ class GuidanceController extends ChangeNotifier {
     _currentRoute = route;
     _currentStepIndex = 0;
     _hasArrived = false;
+    _lastDistanceToStepEnd = null;
     notifyListeners();
   }
 
@@ -106,6 +113,7 @@ class GuidanceController extends ChangeNotifier {
     _currentRoute = null;
     _currentStepIndex = 0;
     _hasArrived = false;
+    _lastDistanceToStepEnd = null;
     notifyListeners();
   }
 
@@ -120,6 +128,13 @@ class GuidanceController extends ChangeNotifier {
 
     final steps = _currentRoute!.steps;
     if (steps.isEmpty) return;
+
+    // Snapshot the previous tick's distance BEFORE the for-loop overwrites
+    // _lastDistanceToStepEnd with the current value. The catch-up block at
+    // the bottom needs the OLD value to detect a growing-distance trend;
+    // without this snapshot it would always be comparing the current value
+    // against itself and could never fire.
+    final previousDistance = _lastDistanceToStepEnd;
 
     // ── Global arrival check ──────────────────────────────
     // If the user is within a safe threshold of the total destination,
@@ -139,7 +154,9 @@ class GuidanceController extends ChangeNotifier {
 
     // ── Step progression check ────────────────────────────
     // Look ahead a bounded window to avoid over-advancing on a long straight
-    // segment that passes close to a future turn point.
+    // segment that passes close to a future turn point. Only the iteration
+    // for the current step actually advances; the rest are reserved for
+    // arrival catches.
     final lookAheadLimit = (_currentStepIndex + 3).clamp(0, steps.length);
 
     for (int i = _currentStepIndex; i < lookAheadLimit; i++) {
@@ -147,28 +164,65 @@ class GuidanceController extends ChangeNotifier {
       final distanceToStepEnd = _calculateDistance(position, step.endLocation);
       final isLastStep = i == steps.length - 1;
 
-      // Near-arrival catch: on the last or second-to-last step, if we're
-      // close enough to the step endpoint, treat as arrival. Covers the
-      // case where the global arrival check above didn't fire because the
-      // destination and final step endpoint are slightly offset.
+      // Near-arrival catch — on the last or second-to-last step, treat
+      // a close approach as arrival in case the global check above missed
+      // (destination and final step endpoint may be slightly offset).
       if (i >= steps.length - 2 && distanceToStepEnd <= stepCompleteMeters) {
         _handleArrival(steps.last);
         return;
       }
 
-      // Final-step arrival — redundant with the block above but preserved
-      // for safety on routes where steps.length == 1.
+      // Final-step arrival — preserved for the steps.length == 1 case.
       if (isLastStep && distanceToStepEnd <= stepCompleteMeters) {
         _handleArrival(step);
         return;
       }
 
-      // Step completion — advance once the user clearly passed the step
-      // endpoint. Only advance the current index (not look-ahead steps) to
-      // avoid skipping multiple turns in one tick.
-      if (distanceToStepEnd < stepCompleteMeters && i == _currentStepIndex) {
-        _advanceStep(i + 1);
-        break;
+      // Step completion — only check the current step. Updates the cache
+      // every tick so _hasPassedStepEnd's crossing detection works on the
+      // very next tick.
+      if (i == _currentStepIndex) {
+        final passed = _hasPassedStepEnd(distanceToStepEnd);
+        _lastDistanceToStepEnd = distanceToStepEnd;
+
+        if (passed) {
+          _advanceStep(i + 1);
+          return; // one advance per tick — skip the catch-up below
+        }
+      }
+    }
+
+    // ── Catch-up advancement ──────────────────────────────
+    // Fires when the user has clearly overshot the current step's endpoint
+    // without any tick landing in either the close-radius zone (10m) or
+    // the crossing-detection zone (25m). Two signals must agree:
+    //
+    //   1. Distance to the current step endpoint is GROWING compared to
+    //      the previous tick — they have walked past closest approach.
+    //   2. They are still within 30m of that endpoint — close enough that
+    //      "growing distance" really does mean "just passed", not "walking
+    //      away from a step that isn't even nearby".
+    //
+    // Note we read previousDistance (snapshotted at function entry), not
+    // _lastDistanceToStepEnd — which the for-loop above has by now
+    // overwritten with the current value.
+    if (_currentStepIndex + 1 < steps.length && previousDistance != null) {
+      final distanceToCurrent = _calculateDistance(
+        position,
+        steps[_currentStepIndex].endLocation,
+      );
+
+      final isGrowing = distanceToCurrent > previousDistance;
+      final isPastButClose = distanceToCurrent < 30.0;
+
+      if (isGrowing && isPastButClose) {
+        debugPrint(
+          'Catch-up advance: distance to step $_currentStepIndex grew '
+          '${previousDistance.toStringAsFixed(1)} → '
+          '${distanceToCurrent.toStringAsFixed(1)}m',
+        );
+        _advanceStep(_currentStepIndex + 1);
+        return;
       }
     }
   }
@@ -186,6 +240,7 @@ class GuidanceController extends ChangeNotifier {
   /// right now — exactly when we want to say "turn right now".
   void _advanceStep(int newIndex) {
     _currentStepIndex = newIndex;
+    _lastDistanceToStepEnd = null; // reset for the new step
     notifyListeners();
 
     final newStep = _currentRoute!.steps[_currentStepIndex];
@@ -228,5 +283,30 @@ class GuidanceController extends ChangeNotifier {
   double _calculateDistance(ll.LatLng a, ll.LatLng b) {
     const ll.Distance distance = ll.Distance();
     return distance.as(ll.LengthUnit.Meter, a, b);
+  }
+
+  /// Returns true when the user has passed the current step's endpoint —
+  /// either by entering the close-radius zone, OR by walking past it
+  /// (distance was shrinking, now growing while still nearby).
+  ///
+  /// The crossing detection catches the case where GPS noise causes the
+  /// user to skip over the close-radius zone in a single tick — they were
+  /// 12m before the endpoint, now 11m past it, and a pure radius check
+  /// would never fire.
+  bool _hasPassedStepEnd(double currentDistance) {
+    // Direct hit — close enough on this tick.
+    if (currentDistance < stepCompleteMeters) return true;
+
+    // Crossing detection — only meaningful within a sane catch radius.
+    // Outside this we don't trust "growing distance" to mean "passed",
+    // because it could just mean the user is walking the wrong way.
+    const crossingCatchRadius = 25.0;
+
+    final last = _lastDistanceToStepEnd;
+    if (last == null) return false;
+    if (currentDistance > crossingCatchRadius) return false;
+
+    // Distance was shrinking, now growing → user just walked past the point.
+    return currentDistance > last;
   }
 }

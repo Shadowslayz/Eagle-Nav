@@ -121,7 +121,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
       );
       _navVoice.onDistanceUpdate(
         remaining,
-        upcomingTurnDirection: step.getTurnDirection(),
+        upcomingTurnDirection: nextStep?.getTurnDirection(), // keep this
         upcomingStreetName: nextStep?.streetName,
       );
     }

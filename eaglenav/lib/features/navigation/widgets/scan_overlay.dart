@@ -17,6 +17,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// - long press → full object detection screen on both platforms
 enum ScanMode { arrowsSegment, fullDetect }
 
+enum _IOSArrowsPhase { detect, segment }
+
 class ScanOverlay extends StatefulWidget {
   final VoidCallback onDismiss;
   final ScanMode mode;
@@ -33,17 +35,26 @@ class ScanOverlay extends StatefulWidget {
 
 class _ScanOverlayState extends State<ScanOverlay> {
   final FlutterTts _tts = FlutterTts();
+  static const Duration _sceneFreshness = Duration(milliseconds: 2200);
 
-  final Map<String, Map<String, String>> _buffer = {
-    'AHEAD': {},
-    'LEFT': {},
-    'RIGHT': {},
+  final Map<String, _SceneObservation?> _nearestHazards = {
+    'AHEAD': null,
+    'LEFT': null,
+    'RIGHT': null,
+  };
+  final Map<String, _SceneWallObservation?> _nearestWalls = {
+    'AHEAD': null,
+    'LEFT': null,
+    'RIGHT': null,
   };
 
   String _summaryText = 'Scanning environment…';
   String _activeDirection = '';
   double _threatLevel = 0.0;
   Timer? _summaryTimer;
+  Timer? _iosPhaseTimer;
+  String _lastSpokenSummary = '';
+  bool _analysisComplete = false;
 
   MethodChannel? _arcoreDetectChannel;
   MethodChannel? _arcoreSegChannel;
@@ -68,6 +79,7 @@ class _ScanOverlayState extends State<ScanOverlay> {
   bool _showDebugCamera = false;
   bool _showIOSDebugCamera = false;
   bool _showSegDebug = false;
+  _IOSArrowsPhase _iosArrowsPhase = _IOSArrowsPhase.detect;
 
   @override
   void initState() {
@@ -79,17 +91,15 @@ class _ScanOverlayState extends State<ScanOverlay> {
     try {
       await _initTts();
 
-      if (Platform.isAndroid) {
-        final granted = await _ensureCameraPermission();
-        if (!mounted) return;
-        if (!granted) {
-          setState(() {
-            _hasError = true;
-            _errorMessage = 'Camera permission required.';
-            _isReady = false;
-          });
-          return;
-        }
+      final granted = await _ensureCameraPermission();
+      if (!mounted) return;
+      if (!granted) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = 'Camera permission required.';
+          _isReady = false;
+        });
+        return;
       }
 
       await Future.delayed(const Duration(milliseconds: 500));
@@ -107,7 +117,7 @@ class _ScanOverlayState extends State<ScanOverlay> {
       }
 
       if (_isArrowsMode) {
-        _scheduleSummary();
+        _startOneShotAnalysis();
       }
     } catch (e) {
       debugPrint('ScanOverlay init: $e');
@@ -131,15 +141,52 @@ class _ScanOverlayState extends State<ScanOverlay> {
     await _tts.setLanguage('en-US');
     await _tts.setSpeechRate(0.50);
     await _tts.setVolume(1.0);
+    await _tts.awaitSpeakCompletion(true);
   }
 
   @override
   void dispose() {
     _tts.stop();
     _summaryTimer?.cancel();
+    _iosPhaseTimer?.cancel();
     _pauseArCore(_arcoreDetectChannel);
     _pauseArCore(_arcoreSegChannel);
     super.dispose();
+  }
+
+  void _startOneShotAnalysis() {
+    _analysisComplete = false;
+    _summaryTimer?.cancel();
+    _iosPhaseTimer?.cancel();
+
+    if (Platform.isIOS) {
+      _iosArrowsPhase = _IOSArrowsPhase.detect;
+      _iosPhaseTimer = Timer(const Duration(milliseconds: 900), () {
+        if (!mounted || _analysisComplete) return;
+        setState(() {
+          _iosArrowsPhase = _IOSArrowsPhase.segment;
+        });
+      });
+      _summaryTimer = Timer(const Duration(milliseconds: 1900), () async {
+        if (!mounted || _analysisComplete) return;
+        await _finishOneShotAnalysis();
+      });
+      return;
+    }
+
+    _summaryTimer = Timer(const Duration(milliseconds: 2200), () async {
+      if (!mounted || _analysisComplete) return;
+      await _finishOneShotAnalysis();
+    });
+  }
+
+  Future<void> _finishOneShotAnalysis() async {
+    _analysisComplete = true;
+    _summaryTimer?.cancel();
+    _iosPhaseTimer?.cancel();
+    await _buildAndSpeakSummary();
+    if (!mounted) return;
+    widget.onDismiss();
   }
 
   Future<void> _pauseArCore(MethodChannel? c) async {
@@ -171,6 +218,21 @@ class _ScanOverlayState extends State<ScanOverlay> {
     return _directionFromNormalizedCx(cx);
   }
 
+  Set<String> _wallDirectionsFromRect(Rect box) {
+    final directions = <String>{};
+    final spansAcrossPath = box.width >= 0.55;
+
+    if (spansAcrossPath) {
+      directions.add('AHEAD');
+      if (box.left <= 0.18) directions.add('LEFT');
+      if (box.right >= 0.82) directions.add('RIGHT');
+      return directions;
+    }
+
+    directions.add(_directionFromRect(box));
+    return directions;
+  }
+
   double _area(Rect box) => box.width * box.height;
 
   int _urgency(double area) {
@@ -178,6 +240,16 @@ class _ScanOverlayState extends State<ScanOverlay> {
     if (area > 0.12) return 2;
     if (area > 0.04) return 1;
     return 0;
+  }
+
+  bool _shouldKeepDetection(String className, double area) {
+    if (_isWallLike(className)) {
+      return _urgency(area) > 0;
+    }
+    if (_isPersonLike(className)) {
+      return area > 0.008;
+    }
+    return area > 0.015;
   }
 
   int _estimateFeetFromArea(double area) {
@@ -191,34 +263,220 @@ class _ScanOverlayState extends State<ScanOverlay> {
     return 15;
   }
 
-  String _toFeetOnly(String raw) {
-    if (raw.isEmpty) return '';
+  bool _isWallLike(String name) {
+    final normalized = name.toLowerCase();
+    return normalized.contains('wall');
+  }
+
+  bool _isPersonLike(String name) {
+    final normalized = name.toLowerCase();
+    return normalized == 'person' || normalized.contains('people');
+  }
+
+  bool _isNarrowObstacleLike(String name) {
+    final normalized = name.toLowerCase();
+    return normalized.contains('column') ||
+        normalized.contains('pillar') ||
+        normalized.contains('pole') ||
+        normalized.contains('post') ||
+        normalized.contains('bollard');
+  }
+
+  String _spokenLabel(String name) {
+    final normalized = name.toLowerCase();
+    if (_isPersonLike(normalized)) return 'person';
+    if (_isNarrowObstacleLike(normalized)) return 'column';
+    if (_isWallLike(normalized)) return 'wall';
+    return normalized.replaceAll('_', ' ');
+  }
+
+  int? _distanceFeetValue(String raw) {
+    if (raw.isEmpty) return null;
     final feetRegex = RegExp(r"(\d+)\s*(?:ft|\u2032|')");
     final inchRegex = RegExp(r'(\d+)\s*(?:in|\u2033|")');
 
-    int? feet;
-    int? inches;
-
     final feetMatch = feetRegex.firstMatch(raw);
-    if (feetMatch != null) feet = int.tryParse(feetMatch.group(1)!);
     final inchMatch = inchRegex.firstMatch(raw);
-    if (inchMatch != null) inches = int.tryParse(inchMatch.group(1)!);
 
-    if (feet == null && inches == null) return raw.trim();
+    final feet = feetMatch != null ? int.tryParse(feetMatch.group(1)!) : null;
+    final inches = inchMatch != null ? int.tryParse(inchMatch.group(1)!) : null;
 
-    int totalFeet = feet ?? 0;
+    if (feet == null && inches == null) return null;
+
+    var totalFeet = feet ?? 0;
     if (inches != null && inches >= 6) totalFeet += 1;
-    if (totalFeet <= 0) totalFeet = 1;
-    return '${totalFeet}ft';
+    return totalFeet <= 0 ? 1 : totalFeet;
+  }
+
+  int _distanceFeetFromRawOrArea(String raw, double area) {
+    return _distanceFeetValue(raw) ?? _estimateFeetFromArea(area);
+  }
+
+  String _spokenDistance(String raw) {
+    final feet = _distanceFeetValue(raw);
+    if (feet == null) return '';
+    if (feet <= 3) return 'a few feet';
+    if (feet <= 6) return 'about $feet feet';
+    return '$feet feet';
+  }
+
+  String _locationPhrase(String dir) {
+    switch (dir) {
+      case 'AHEAD':
+        return 'ahead';
+      case 'LEFT':
+        return 'to your left';
+      case 'RIGHT':
+        return 'to your right';
+      default:
+        return '';
+    }
+  }
+
+  bool _isBetterHazardCandidate(
+    _SceneObservation candidate,
+    _SceneObservation? current,
+  ) {
+    if (current == null) return true;
+
+    final candidatePriority = _isPersonLike(candidate.className)
+        ? 0
+        : _isNarrowObstacleLike(candidate.className)
+        ? 1
+        : 2;
+    final currentPriority = _isPersonLike(current.className)
+        ? 0
+        : _isNarrowObstacleLike(current.className)
+        ? 1
+        : 2;
+    if (candidatePriority != currentPriority) {
+      return candidatePriority < currentPriority;
+    }
+
+    if (candidate.feet != current.feet) {
+      return candidate.feet < current.feet;
+    }
+
+    return candidate.area > current.area;
+  }
+
+  void _recordWall(String dir, int feet) {
+    final now = DateTime.now();
+    final current = _nearestWalls[dir];
+    if (current == null || feet < current.feet) {
+      _nearestWalls[dir] = _SceneWallObservation(feet: feet, updatedAt: now);
+    }
+  }
+
+  void _recordHazard(String dir, String className, int feet, double area) {
+    final candidate = _SceneObservation(
+      className: className.toLowerCase(),
+      feet: feet,
+      area: area,
+      updatedAt: DateTime.now(),
+    );
+    if (_isBetterHazardCandidate(candidate, _nearestHazards[dir])) {
+      _nearestHazards[dir] = candidate;
+    }
+  }
+
+  _SceneObservation? _freshHazard(String dir) {
+    final hazard = _nearestHazards[dir];
+    if (hazard == null) return null;
+    if (DateTime.now().difference(hazard.updatedAt) > _sceneFreshness) {
+      _nearestHazards[dir] = null;
+      return null;
+    }
+    return hazard;
+  }
+
+  _SceneWallObservation? _freshWall(String dir) {
+    final wall = _nearestWalls[dir];
+    if (wall == null) return null;
+    if (DateTime.now().difference(wall.updatedAt) > _sceneFreshness) {
+      _nearestWalls[dir] = null;
+      return null;
+    }
+    return wall;
+  }
+
+  void _clearSceneState() {
+    for (final key in _nearestHazards.keys) {
+      _nearestHazards[key] = null;
+      _nearestWalls[key] = null;
+    }
+  }
+
+  String? _safeDirectionRecommendation() {
+    int scoreFor(String dir) {
+      var score = 100;
+      final wallFeet = _freshWall(dir)?.feet;
+      final hazard = _freshHazard(dir);
+
+      if (wallFeet != null) {
+        if (wallFeet <= 3) {
+          score -= 70;
+        } else if (wallFeet <= 5) {
+          score -= 45;
+        } else if (wallFeet <= 8) {
+          score -= 25;
+        } else {
+          score -= 10;
+        }
+      } else {
+        score += 10;
+      }
+
+      if (hazard != null) {
+        final isNarrow = _isNarrowObstacleLike(hazard.className);
+        if (hazard.feet <= 3) {
+          score -= isNarrow ? 70 : 55;
+        } else if (hazard.feet <= 6) {
+          score -= isNarrow ? 50 : 35;
+        } else {
+          score -= isNarrow ? 25 : 15;
+        }
+      }
+
+      return score;
+    }
+
+    bool hasPositiveEvidence(String dir) {
+      final wallFeet = _freshWall(dir)?.feet;
+      final hazard = _freshHazard(dir);
+      final wallOk = wallFeet == null || wallFeet >= 8;
+      final hazardOk = hazard == null || hazard.feet >= 8;
+      return wallOk && hazardOk;
+    }
+
+    final leftScore = scoreFor('LEFT');
+    final rightScore = scoreFor('RIGHT');
+    if ((leftScore - rightScore).abs() < 25) return null;
+
+    final recommended = leftScore > rightScore ? 'left' : 'right';
+    return hasPositiveEvidence(recommended) ? recommended : null;
+  }
+
+  void _updateThreatAndDirection(String dir, double area) {
+    setState(() {
+      _threatLevel = (area / 0.35).clamp(0.0, 1.0);
+      _activeDirection = dir;
+    });
+    _triggerHaptics(_urgency(area));
   }
 
   // iOS behavior from file 2
   void _handleIOSArrowsResults(List<YOLOResult> results) {
-    if (!mounted || !_isArrowsMode) return;
+    if (!mounted || !_isArrowsMode || _analysisComplete) return;
 
-    final relevant = results.where((r) =>
-        r.className.isNotEmpty &&
-        !_ignored.contains(r.className.toLowerCase())).toList();
+    final relevant = results
+        .where(
+          (r) =>
+              r.className.isNotEmpty &&
+              !_ignored.contains(r.className.toLowerCase()) &&
+              _isWallLike(r.className),
+        )
+        .toList();
 
     if (relevant.isEmpty) return;
 
@@ -229,7 +487,6 @@ class _ScanOverlayState extends State<ScanOverlay> {
     for (final r in relevant) {
       final area = _area(r.normalizedBox);
       if (_urgency(area) == 0) continue;
-      final dir = _directionFromRect(r.normalizedBox);
 
       String distStr;
       try {
@@ -240,36 +497,41 @@ class _ScanOverlayState extends State<ScanOverlay> {
       } catch (_) {
         distStr = '${_estimateFeetFromArea(area)}ft';
       }
-
-      _buffer[dir]?[r.className.toLowerCase()] = distStr;
+      final feet = _distanceFeetFromRawOrArea(distStr, area);
+      for (final dir in _wallDirectionsFromRect(r.normalizedBox)) {
+        _recordWall(dir, feet);
+      }
     }
 
     final topArea = _area(relevant.first.normalizedBox);
     final topDir = _directionFromRect(relevant.first.normalizedBox);
-
-    setState(() {
-      _threatLevel = (topArea / 0.35).clamp(0.0, 1.0);
-      _activeDirection = topDir;
-    });
-
-    _triggerHaptics(_urgency(topArea));
+    _updateThreatAndDirection(topDir, topArea);
   }
 
   void _handleDetectResults(List<YOLOResult> results) {
-    _processResults(results);
+    if (_analysisComplete) return;
+    _processResults(results, wallsOnly: false);
   }
 
   void _handleSegResults(List<YOLOResult> results) {
-    _processResults(results);
+    if (_analysisComplete) return;
+    _processResults(results, wallsOnly: true);
   }
 
   // Android behavior from file 1
-  void _processResults(List<YOLOResult> results) {
-    if (!mounted) return;
+  void _processResults(List<YOLOResult> results, {required bool wallsOnly}) {
+    if (!mounted || _analysisComplete) return;
 
-    final relevant = results.where((r) =>
-        r.className.isNotEmpty &&
-        !_ignored.contains(r.className.toLowerCase())).toList();
+    final relevant = results
+        .where(
+          (r) =>
+              r.className.isNotEmpty &&
+              !_ignored.contains(r.className.toLowerCase()) &&
+              (wallsOnly
+                  ? _isWallLike(r.className)
+                  : !_isWallLike(r.className)),
+        )
+        .toList();
 
     if (relevant.isEmpty) return;
 
@@ -279,8 +541,7 @@ class _ScanOverlayState extends State<ScanOverlay> {
 
     for (final r in relevant) {
       final area = _area(r.normalizedBox);
-      if (_urgency(area) == 0) continue;
-      final dir = _directionFromRect(r.normalizedBox);
+      if (!_shouldKeepDetection(r.className, area)) continue;
 
       String distStr;
       try {
@@ -291,19 +552,20 @@ class _ScanOverlayState extends State<ScanOverlay> {
       } catch (_) {
         distStr = '${_estimateFeetFromArea(area)}ft';
       }
-
-      _buffer[dir]?[r.className.toLowerCase()] = distStr;
+      final feet = _distanceFeetFromRawOrArea(distStr, area);
+      if (wallsOnly) {
+        for (final dir in _wallDirectionsFromRect(r.normalizedBox)) {
+          _recordWall(dir, feet);
+        }
+      } else {
+        final dir = _directionFromRect(r.normalizedBox);
+        _recordHazard(dir, r.className, feet, area);
+      }
     }
 
     final topArea = _area(relevant.first.normalizedBox);
     final topDir = _directionFromRect(relevant.first.normalizedBox);
-
-    setState(() {
-      _threatLevel = (topArea / 0.35).clamp(0.0, 1.0);
-      _activeDirection = topDir;
-    });
-
-    _triggerHaptics(_urgency(topArea));
+    _updateThreatAndDirection(topDir, topArea);
   }
 
   void _onArCoreDetectViewCreated(int viewId) {
@@ -329,7 +591,7 @@ class _ScanOverlayState extends State<ScanOverlay> {
   }
 
   void _processAndroidPayloadForArrows(List<dynamic> payload) {
-    if (!mounted || payload.isEmpty) return;
+    if (!mounted || payload.isEmpty || _analysisComplete) return;
 
     final items = <_ArDetection>[];
     for (final raw in payload) {
@@ -343,12 +605,14 @@ class _ScanOverlayState extends State<ScanOverlay> {
       final h = (raw['h'] as num?)?.toDouble() ?? 0.0;
       final distText = (raw['distance_text'] as String?) ?? '';
 
-      items.add(_ArDetection(
-        className: cls,
-        cx: x + w / 2,
-        area: w * h,
-        distanceText: distText,
-      ));
+      items.add(
+        _ArDetection(
+          className: cls,
+          cx: x + w / 2,
+          area: w * h,
+          distanceText: distText,
+        ),
+      );
     }
 
     if (items.isEmpty) return;
@@ -358,18 +622,19 @@ class _ScanOverlayState extends State<ScanOverlay> {
       final hasDist = d.distanceText.isNotEmpty;
       if (!hasDist && _urgency(d.area) == 0) continue;
       final dir = _directionFromNormalizedCx(d.cx);
-      final distStr =
-          hasDist ? d.distanceText : '${_estimateFeetFromArea(d.area)}ft';
-      _buffer[dir]?[d.className] = distStr;
+      final distStr = hasDist
+          ? d.distanceText
+          : '${_estimateFeetFromArea(d.area)}ft';
+      _recordHazard(
+        dir,
+        d.className,
+        _distanceFeetFromRawOrArea(distStr, d.area),
+        d.area,
+      );
     }
 
     final top = items.first;
-    setState(() {
-      _threatLevel = (top.area / 0.35).clamp(0.0, 1.0);
-      _activeDirection = _directionFromNormalizedCx(top.cx);
-    });
-
-    _triggerHaptics(_urgency(top.area));
+    _updateThreatAndDirection(_directionFromNormalizedCx(top.cx), top.area);
   }
 
   void _triggerHaptics(int urgency) {
@@ -384,52 +649,69 @@ class _ScanOverlayState extends State<ScanOverlay> {
     }
   }
 
-  void _scheduleSummary() {
-    _summaryTimer = Timer(const Duration(seconds: 5), _announceAndReschedule);
-  }
-
-  Future<void> _announceAndReschedule() async {
-    if (!mounted) return;
-    await _buildAndSpeakSummary();
-    _scheduleSummary();
-  }
-
   Future<void> _buildAndSpeakSummary() async {
     final parts = <String>[];
+    final aheadHazard = _freshHazard('AHEAD');
+    final leftHazard = _freshHazard('LEFT');
+    final rightHazard = _freshHazard('RIGHT');
+    final aheadWall = _freshWall('AHEAD')?.feet;
+    final leftWall = _freshWall('LEFT')?.feet;
+    final rightWall = _freshWall('RIGHT')?.feet;
 
-    for (final dir in ['AHEAD', 'LEFT', 'RIGHT']) {
-      final items = _buffer[dir];
-      if (items == null || items.isEmpty) continue;
-
-      final entries = items.entries.take(2).toList();
-      final pieces = <String>[];
-
-      for (final e in entries) {
-        final name = e.key;
-        final feetOnly = _toFeetOnly(e.value);
-
-        String locationPhrase;
-        if (dir == 'AHEAD') {
-          locationPhrase = 'ahead';
-        } else if (dir == 'LEFT') {
-          locationPhrase = 'on your left';
-        } else {
-          locationPhrase = 'on your right';
-        }
-
-        if (feetOnly.isEmpty) {
-          pieces.add('$name $locationPhrase');
-        } else {
-          pieces.add('$name $feetOnly $locationPhrase');
-        }
-      }
-
-      parts.addAll(pieces);
+    if (aheadHazard != null) {
+      final distance = _spokenDistance('${aheadHazard.feet}ft');
+      parts.add(
+        distance.isEmpty
+            ? '${_spokenLabel(aheadHazard.className)} ahead'
+            : '${_spokenLabel(aheadHazard.className)} $distance ahead',
+      );
+    } else if (aheadWall != null && aheadWall <= 4) {
+      parts.add('wall very close ahead');
+    } else {
+      parts.add('path mostly clear ahead');
     }
 
-    _buffer.forEach((k, v) => v.clear());
+    if (leftWall != null && rightWall != null) {
+      if (leftWall <= 5 && rightWall <= 5) {
+        parts.add('walls close on both sides');
+      } else {
+        parts.add('walls on both sides');
+      }
+    } else {
+      if (leftWall != null) {
+        parts.add(
+          leftWall <= 4 ? 'wall close on your left' : 'wall on your left',
+        );
+      }
+      if (rightWall != null) {
+        parts.add(
+          rightWall <= 4 ? 'wall close on your right' : 'wall on your right',
+        );
+      }
+    }
 
-    final text = parts.isEmpty ? 'Path clear' : parts.join(', ');
+    for (final entry in [('LEFT', leftHazard), ('RIGHT', rightHazard)]) {
+      final dir = entry.$1;
+      final hazard = entry.$2;
+      if (hazard == null) continue;
+      if (hazard.feet > 6) continue;
+      final distance = _spokenDistance('${hazard.feet}ft');
+      final location = _locationPhrase(dir);
+      parts.add(
+        distance.isEmpty
+            ? '${_spokenLabel(hazard.className)} $location'
+            : '${_spokenLabel(hazard.className)} $distance $location',
+      );
+    }
+
+    final recommendation = _safeDirectionRecommendation();
+    if (recommendation != null) {
+      parts.add('more room on your $recommendation');
+    }
+
+    _clearSceneState();
+
+    final text = parts.isEmpty ? 'Path mostly clear' : parts.join(', ');
 
     setState(() {
       _summaryText = _capitalize(text);
@@ -438,6 +720,9 @@ class _ScanOverlayState extends State<ScanOverlay> {
         _activeDirection = '';
       }
     });
+
+    if (text == _lastSpokenSummary) return;
+    _lastSpokenSummary = text;
 
     try {
       await _tts.stop();
@@ -560,9 +845,7 @@ class _ScanOverlayState extends State<ScanOverlay> {
             right: 0,
             child: Container(
               padding: EdgeInsets.fromLTRB(20, topPad + 12, 20, 16),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.25),
-              ),
+              decoration: BoxDecoration(color: Colors.black.withOpacity(0.25)),
               child: Row(
                 children: [
                   Container(
@@ -590,11 +873,8 @@ class _ScanOverlayState extends State<ScanOverlay> {
                         ),
                       ),
                       Text(
-                        'Summarizes every 5 seconds',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 11,
-                        ),
+                        'Analyzes once per tap',
+                        style: TextStyle(color: Colors.white70, fontSize: 11),
                       ),
                     ],
                   ),
@@ -707,19 +987,22 @@ class _ScanOverlayState extends State<ScanOverlay> {
                   child: Stack(
                     children: [
                       Positioned.fill(
-                      child: YOLOView(
-                        key: ValueKey(
-                          _showSegDebug
-                              ? 'scan_seg_debug_visible'
-                              : 'scan_detect_debug_visible',
+                        child: YOLOView(
+                          key: ValueKey(
+                            _showSegDebug
+                                ? 'scan_seg_debug_visible'
+                                : 'scan_detect_debug_visible',
+                          ),
+                          modelPath: _showSegDebug ? segModel : detectModel,
+                          task: _showSegDebug
+                              ? YOLOTask.segment
+                              : YOLOTask.detect,
+                          confidenceThreshold: 0.35,
+                          showOverlays: true,
+                          onResult: _showSegDebug
+                              ? _handleSegResults
+                              : _handleDetectResults,
                         ),
-                        modelPath: _showSegDebug ? segModel : detectModel,
-                        task: _showSegDebug ? YOLOTask.segment : YOLOTask.detect,
-                        confidenceThreshold: 0.35,
-                        showOverlays: true,
-                        onResult:
-                            _showSegDebug ? _handleSegResults : _handleDetectResults,
-                      ),
                       ),
                       Positioned(
                         top: 10,
@@ -755,9 +1038,7 @@ class _ScanOverlayState extends State<ScanOverlay> {
             right: 0,
             child: Container(
               padding: EdgeInsets.fromLTRB(24, 28, 24, botPad + 28),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.25),
-              ),
+              decoration: BoxDecoration(color: Colors.black.withOpacity(0.25)),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -773,7 +1054,8 @@ class _ScanOverlayState extends State<ScanOverlay> {
                       key: ValueKey(_summaryText),
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: _summaryText == 'Path clear' ||
+                        color:
+                            _summaryText == 'Path clear' ||
                                 _summaryText == 'Scanning environment…'
                             ? Colors.white70
                             : Colors.white,
@@ -786,10 +1068,7 @@ class _ScanOverlayState extends State<ScanOverlay> {
                   const SizedBox(height: 12),
                   const Text(
                     'Tap anywhere to close',
-                    style: TextStyle(
-                      color: Colors.white30,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: Colors.white30, fontSize: 12),
                   ),
                 ],
               ),
@@ -815,23 +1094,41 @@ class _ScanOverlayState extends State<ScanOverlay> {
           if (_isReady && !_hasError)
             _isArrowsMode
                 ? (!_showIOSDebugCamera
-                    ? Positioned.fill(
-                        child: IgnorePointer(
-                          child: Opacity(
-                            opacity: 0.0,
-                            child: _PrimaryCameraView(
-                              mode: widget.mode,
-                              detectModel: detectModel,
-                              segModel: segModel,
-                              onIOSArrowsResult: _handleIOSArrowsResults,
-                              onAndroidDetectViewCreated:
-                                  _onArCoreDetectViewCreated,
-                              onAndroidSegViewCreated: _onArCoreSegViewCreated,
+                      ? Positioned(
+                          left: 0,
+                          top: 0,
+                          width: 1,
+                          height: 1,
+                          child: IgnorePointer(
+                            child: Opacity(
+                              opacity: 0.0,
+                              child: YOLOView(
+                                key: ValueKey(
+                                  _iosArrowsPhase == _IOSArrowsPhase.detect
+                                      ? 'ios_scan_detect_hidden'
+                                      : 'ios_scan_seg_hidden',
+                                ),
+                                modelPath:
+                                    _iosArrowsPhase == _IOSArrowsPhase.detect
+                                    ? detectModel
+                                    : segModel,
+                                task: _iosArrowsPhase == _IOSArrowsPhase.detect
+                                    ? YOLOTask.detect
+                                    : YOLOTask.segment,
+                                confidenceThreshold:
+                                    _iosArrowsPhase == _IOSArrowsPhase.detect
+                                    ? 0.20
+                                    : 0.35,
+                                showOverlays: false,
+                                onResult:
+                                    _iosArrowsPhase == _IOSArrowsPhase.detect
+                                    ? _handleDetectResults
+                                    : _handleIOSArrowsResults,
+                              ),
                             ),
                           ),
-                        ),
-                      )
-                    : const SizedBox.shrink())
+                        )
+                      : const SizedBox.shrink())
                 : Positioned.fill(
                     child: IgnorePointer(
                       child: _PrimaryCameraView(
@@ -881,10 +1178,9 @@ class _ScanOverlayState extends State<ScanOverlay> {
                         const SizedBox(height: 16),
                         Text(
                           'Camera failed to start',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
-                              ?.copyWith(color: Colors.white),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleLarge?.copyWith(color: Colors.white),
                         ),
                         const SizedBox(height: 8),
                         Text(
@@ -909,9 +1205,7 @@ class _ScanOverlayState extends State<ScanOverlay> {
             const Positioned.fill(
               child: IgnorePointer(
                 child: Center(
-                  child: CircularProgressIndicator(
-                    color: Color(0xFFC9A227),
-                  ),
+                  child: CircularProgressIndicator(color: Color(0xFFC9A227)),
                 ),
               ),
             ),
@@ -972,11 +1266,8 @@ class _ScanOverlayState extends State<ScanOverlay> {
                       ),
                       if (_isArrowsMode)
                         const Text(
-                          'Summarizes every 5 seconds',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 11,
-                          ),
+                          'Analyzes once per tap',
+                          style: TextStyle(color: Colors.white70, fontSize: 11),
                         ),
                     ],
                   ),
@@ -1032,7 +1323,9 @@ class _ScanOverlayState extends State<ScanOverlay> {
                         border: Border.all(color: Colors.white24),
                       ),
                       child: Text(
-                        _showIOSDebugCamera ? 'Hide iOS Debug' : 'Show iOS Debug',
+                        _showIOSDebugCamera
+                            ? 'Hide iOS Debug'
+                            : 'Show iOS Debug',
                         style: const TextStyle(color: Colors.white),
                       ),
                     ),
@@ -1164,7 +1457,8 @@ class _ScanOverlayState extends State<ScanOverlay> {
                         key: ValueKey(_summaryText),
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: _summaryText == 'Path clear' ||
+                          color:
+                              _summaryText == 'Path clear' ||
                                   _summaryText == 'Scanning environment…'
                               ? Colors.white70
                               : Colors.white,
@@ -1323,6 +1617,27 @@ class _ArDetection {
   });
 }
 
+class _SceneObservation {
+  final String className;
+  final int feet;
+  final double area;
+  final DateTime updatedAt;
+
+  const _SceneObservation({
+    required this.className,
+    required this.feet,
+    required this.area,
+    required this.updatedAt,
+  });
+}
+
+class _SceneWallObservation {
+  final int feet;
+  final DateTime updatedAt;
+
+  const _SceneWallObservation({required this.feet, required this.updatedAt});
+}
+
 class _DirectionRow extends StatelessWidget {
   final String activeDirection;
   final Color color;
@@ -1370,7 +1685,9 @@ class _Arrow extends StatelessWidget {
       width: active ? 56 : 44,
       height: active ? 56 : 44,
       decoration: BoxDecoration(
-        color: active ? color.withOpacity(0.22) : Colors.white.withOpacity(0.07),
+        color: active
+            ? color.withOpacity(0.22)
+            : Colors.white.withOpacity(0.07),
         shape: BoxShape.circle,
         border: Border.all(
           color: active ? color : Colors.white24,

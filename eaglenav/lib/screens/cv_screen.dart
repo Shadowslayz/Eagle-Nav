@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:ultralytics_yolo/ultralytics_yolo.dart';
 
@@ -24,11 +25,14 @@ class _CVisionObjectsScreenState extends State<CVisionObjectsScreen> {
 
   String _lastSentence = '';
   DateTime _lastSpoken = DateTime.fromMillisecondsSinceEpoch(0);
+  bool _checkingCameraPermission = true;
+  PermissionStatus _cameraPermissionStatus = PermissionStatus.denied;
 
   @override
   void initState() {
     super.initState();
     _initTts();
+    _requestCameraPermission();
   }
 
   Future<void> _initTts() async {
@@ -37,6 +41,15 @@ class _CVisionObjectsScreenState extends State<CVisionObjectsScreen> {
     await _tts.setVolume(1.0);
     // optional but helps avoid overlap on some devices:
     // await _tts.awaitSpeakCompletion(true);
+  }
+
+  Future<void> _requestCameraPermission() async {
+    final status = await Permission.camera.request();
+    if (!mounted) return;
+    setState(() {
+      _cameraPermissionStatus = status;
+      _checkingCameraPermission = false;
+    });
   }
 
   @override
@@ -102,10 +115,46 @@ class _CVisionObjectsScreenState extends State<CVisionObjectsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_checkingCameraPermission) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (!_cameraPermissionStatus.isGranted) {
+      final permanentlyDenied =
+          _cameraPermissionStatus.isPermanentlyDenied ||
+          _cameraPermissionStatus.isRestricted;
+      return Scaffold(
+        appBar: AppBar(title: const Text('Computer Vision')),
+        body: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.camera_alt_outlined, size: 56),
+                const SizedBox(height: 16),
+                const Text(
+                  'Camera access is required for live object detection.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: permanentlyDenied
+                      ? openAppSettings
+                      : _requestCameraPermission,
+                  child: Text(
+                    permanentlyDenied ? 'Open Settings' : 'Allow Camera',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     // ✅ same strategy as your “works” version
-    final String modelPath = Platform.isAndroid
-        ? 'yolo11n.tflite'
-        : 'yolo11n';
+    final String modelPath = Platform.isAndroid ? 'yolo11n.tflite' : 'yolo11n';
 
     return Scaffold(
       appBar: AppBar(
@@ -122,7 +171,9 @@ class _CVisionObjectsScreenState extends State<CVisionObjectsScreen> {
                 if (!context.mounted) return;
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const CVisionSegmentationScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const CVisionSegmentationScreen(),
+                  ),
                 );
               },
             ),
@@ -170,11 +221,14 @@ class _CVisionSegmentationScreenState extends State<CVisionSegmentationScreen> {
 
   String _status = 'Segmentation active…';
   DateTime _lastSpoken = DateTime.fromMillisecondsSinceEpoch(0);
+  bool _checkingCameraPermission = true;
+  PermissionStatus _cameraPermissionStatus = PermissionStatus.denied;
 
   @override
   void initState() {
     super.initState();
     _initTts();
+    _requestCameraPermission();
   }
 
   Future<void> _initTts() async {
@@ -183,6 +237,15 @@ class _CVisionSegmentationScreenState extends State<CVisionSegmentationScreen> {
     await _tts.setVolume(1.0);
     // optional:
     // await _tts.awaitSpeakCompletion(true);
+  }
+
+  Future<void> _requestCameraPermission() async {
+    final status = await Permission.camera.request();
+    if (!mounted) return;
+    setState(() {
+      _cameraPermissionStatus = status;
+      _checkingCameraPermission = false;
+    });
   }
 
   @override
@@ -217,7 +280,7 @@ class _CVisionSegmentationScreenState extends State<CVisionSegmentationScreen> {
     bool sawStairs = false;
 
     for (final r in results) {
-      final name = r.className.toLowerCase() ?? '';
+      final name = r.className.toLowerCase();
       if (name.isEmpty) continue;
 
       if (name.contains('wall')) sawWall = true;
@@ -235,19 +298,53 @@ class _CVisionSegmentationScreenState extends State<CVisionSegmentationScreen> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
+    if (_checkingCameraPermission) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (!_cameraPermissionStatus.isGranted) {
+      final permanentlyDenied =
+          _cameraPermissionStatus.isPermanentlyDenied ||
+          _cameraPermissionStatus.isRestricted;
+      return Scaffold(
+        appBar: AppBar(title: const Text('Segmentation')),
+        body: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.camera_alt_outlined, size: 56),
+                const SizedBox(height: 16),
+                const Text(
+                  'Camera access is required for segmentation.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: permanentlyDenied
+                      ? openAppSettings
+                      : _requestCameraPermission,
+                  child: Text(
+                    permanentlyDenied ? 'Open Settings' : 'Allow Camera',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     // ✅ same strategy as your “works” version
     final String modelPath = Platform.isAndroid
         ? 'yolo11n-seg.tflite'
         : 'yolo11n-seg';
 
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Segmentation'),
-      ),
+      appBar: AppBar(title: const Text('Segmentation')),
       body: Stack(
         children: [
           YOLOView(

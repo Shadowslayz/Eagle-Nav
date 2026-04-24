@@ -500,218 +500,239 @@ class _NavigationScreenState extends State<NavigationScreen> {
           final isDestinationSelected =
               _uiController.state == NavigationUIState.destinationSelected;
 
-          return GestureDetector(
-            onDoubleTap: () => _navVoice.announceCurrentHeading(
-              currentPosition: _locationController.currentLocation,
-              currentStreetName: _guidanceController.currentStep?.streetName,
-              isOnRoute: (_routingController.lastDeviation ?? 0) < 20,
-            ),
-            child: Stack(
-              children: [
-                // ── Map ──────────────────────────────────────
-                FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(
-                    initialCenter:
-                        position ?? const ll.LatLng(34.067, -118.170),
-                    initialZoom: 16.0,
-                    interactionOptions: const InteractionOptions(
-                      flags:
-                          InteractiveFlag.drag |
-                          InteractiveFlag.pinchZoom |
-                          InteractiveFlag.rotate,
+          return Stack(
+            children: [
+              // ── Map ──────────────────────────────────────
+              FlutterMap(
+                mapController: _mapController,
+                options: MapOptions(
+                  initialCenter: position ?? const ll.LatLng(34.067, -118.170),
+                  initialZoom: 16.0,
+                  interactionOptions: const InteractionOptions(
+                    flags:
+                        InteractiveFlag.drag |
+                        InteractiveFlag.pinchZoom |
+                        InteractiveFlag.rotate,
+                  ),
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate:
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.example.eagle_nav_app',
+                    maxZoom: 19.0,
+                    minZoom: 12.0,
+                  ),
+                  PolylineLayer(
+                    simplificationTolerance: 0.0,
+                    polylines: [
+                      if (polyline.isNotEmpty)
+                        Polyline(
+                          points: [...polyline],
+                          strokeWidth: 40.0,
+                          color: Colors.blue.withOpacity(0.12),
+                          borderStrokeWidth: 1.5,
+                          borderColor: Colors.blue.withOpacity(0.25),
+                          strokeCap: StrokeCap.round,
+                          strokeJoin: StrokeJoin.round,
+                        ),
+                      if (polyline.isNotEmpty)
+                        Polyline(
+                          points: [...polyline],
+                          strokeWidth: 4,
+                          color: isNavigating
+                              ? Colors.blue
+                              : isRerouting
+                              ? Colors.orange
+                              : Colors.grey,
+                          strokeCap: StrokeCap.round,
+                          strokeJoin: StrokeJoin.round,
+                        ),
+                    ],
+                  ),
+                  MarkerLayer(
+                    markers: [
+                      if (position != null)
+                        Marker(
+                          point: position,
+                          width: 60,
+                          height: 60,
+                          child: ValueListenableBuilder<double>(
+                            valueListenable: _navVoice.compassHeadingNotifier,
+                            builder: (context, heading, _) {
+                              return PulsingLocationMarker(
+                                size: 20.0,
+                                dotColor: Colors.blue,
+                                pulseColor: Colors.blue,
+                                heading: heading,
+                              );
+                            },
+                          ),
+                        ),
+                      if (_destination != null)
+                        Marker(
+                          point: _destination!,
+                          width: 120,
+                          height: 60,
+                          child: Column(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Colors.black26,
+                                      blurRadius: 4,
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  _uiController.selectedDestination?.name ??
+                                      'Destination',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const Icon(
+                                Icons.location_pin,
+                                color: Colors.red,
+                                size: 28,
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+
+              // ── Search bar ────────────────────────────────
+              if (!isNavigating)
+                Positioned(
+                  top: topPadding + 16,
+                  left: 16,
+                  right: 16,
+                  child: BuildingSearchBar(
+                    onBuildingSelected: _onBuildingSelected,
+                  ),
+                ),
+
+              // ── Status Update Button (Screen Reader Accessible) ──
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                right: 16,
+                bottom: (isNavigating || isDestinationSelected) ? 310 : 190,
+                child: Semantics(
+                  label: 'status update',
+                  button: true,
+                  excludeSemantics: true,
+                  child: FloatingActionButton(
+                    heroTag: 'status_update_btn',
+                    backgroundColor: Colors.white,
+                    onPressed: () {
+                      _navVoice.announceCurrentHeading(
+                        currentPosition: _locationController.currentLocation,
+                        currentStreetName:
+                            _guidanceController.currentStep?.streetName,
+                        isOnRoute: (_routingController.lastDeviation ?? 0) < 20,
+                      );
+                    },
+                    child: const Icon(
+                      Icons.spatial_audio_off,
+                      color: Colors.blue,
                     ),
                   ),
+                ),
+              ),
+
+              // ── Recenter button ───────────────────────────
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                right: 16,
+                bottom: (isNavigating || isDestinationSelected) ? 240 : 120,
+                child: FloatingActionButton(
+                  heroTag: 'recenter_btn_safe',
+                  backgroundColor: Colors.white,
+                  onPressed: () {
+                    final userLocation = _locationController.currentLocation;
+                    if (userLocation != null) {
+                      _mapController.move(
+                        userLocation,
+                        _mapController.camera.zoom,
+                      );
+                      _mapController.rotate(
+                        _navVoice.compassHeadingNotifier.value,
+                      );
+                    }
+                  },
+                  child: const Icon(Icons.my_location, color: Colors.blue),
+                ),
+              ),
+
+              // ── Zoom buttons ──────────────────────────────
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                left: 16,
+                bottom: (isNavigating || isDestinationSelected) ? 240 : 120,
+                child: Column(
                   children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.example.eagle_nav_app',
-                      maxZoom: 19.0,
-                      minZoom: 12.0,
+                    FloatingActionButton(
+                      heroTag: 'zoom_in',
+                      mini: true,
+                      backgroundColor: Colors.white,
+                      onPressed: _zoomIn,
+                      child: const Icon(Icons.add, color: Colors.black),
                     ),
-                    PolylineLayer(
-                      simplificationTolerance: 0.0,
-                      polylines: [
-                        if (polyline.isNotEmpty)
-                          Polyline(
-                            points: [...polyline],
-                            strokeWidth: 40.0,
-                            color: Colors.blue.withOpacity(0.12),
-                            borderStrokeWidth: 1.5,
-                            borderColor: Colors.blue.withOpacity(0.25),
-                            strokeCap: StrokeCap.round,
-                            strokeJoin: StrokeJoin.round,
-                          ),
-                        if (polyline.isNotEmpty)
-                          Polyline(
-                            points: [...polyline],
-                            strokeWidth: 4,
-                            color: isNavigating
-                                ? Colors.blue
-                                : isRerouting
-                                ? Colors.orange
-                                : Colors.grey,
-                            strokeCap: StrokeCap.round,
-                            strokeJoin: StrokeJoin.round,
-                          ),
-                      ],
-                    ),
-                    MarkerLayer(
-                      markers: [
-                        if (position != null)
-                          Marker(
-                            point: position,
-                            width: 60,
-                            height: 60,
-                            child: ValueListenableBuilder<double>(
-                              valueListenable: _navVoice.compassHeadingNotifier,
-                              builder: (context, heading, _) {
-                                return PulsingLocationMarker(
-                                  size: 20.0,
-                                  dotColor: Colors.blue,
-                                  pulseColor: Colors.blue,
-                                  heading: heading,
-                                );
-                              },
-                            ),
-                          ),
-                        if (_destination != null)
-                          Marker(
-                            point: _destination!,
-                            width: 120,
-                            height: 60,
-                            child: Column(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                    boxShadow: const [
-                                      BoxShadow(
-                                        color: Colors.black26,
-                                        blurRadius: 4,
-                                      ),
-                                    ],
-                                  ),
-                                  child: Text(
-                                    _uiController.selectedDestination?.name ??
-                                        'Destination',
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                const Icon(
-                                  Icons.location_pin,
-                                  color: Colors.red,
-                                  size: 28,
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
+                    const SizedBox(height: 10),
+                    FloatingActionButton(
+                      heroTag: 'zoom_out',
+                      mini: true,
+                      backgroundColor: Colors.white,
+                      onPressed: _zoomOut,
+                      child: const Icon(Icons.remove, color: Colors.black),
                     ),
                   ],
                 ),
+              ),
 
-                // ── Search bar ────────────────────────────────
-                if (!isNavigating)
-                  Positioned(
-                    top: topPadding + 16,
-                    left: 16,
-                    right: 16,
-                    child: BuildingSearchBar(
-                      onBuildingSelected: _onBuildingSelected,
-                    ),
-                  ),
+              // ── Bottom panel ──────────────────────────────
+              _buildBottomPanel(),
 
-                // ── Recenter button ───────────────────────────
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                  right: 16,
-                  bottom: (isNavigating || isDestinationSelected) ? 240 : 120,
-                  child: FloatingActionButton(
-                    heroTag: 'recenter_btn_safe',
-                    backgroundColor: Colors.white,
-                    onPressed: () {
-                      final userLocation = _locationController.currentLocation;
-                      if (userLocation != null) {
-                        _mapController.move(
-                          userLocation,
-                          _mapController.camera.zoom,
-                        );
-                        _mapController.rotate(
-                          _navVoice.compassHeadingNotifier.value,
-                        );
-                      }
-                    },
-                    child: const Icon(Icons.my_location, color: Colors.blue),
-                  ),
-                ),
-
-                // ── Zoom buttons ──────────────────────────────
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
+              // ── Turn-by-turn panel ────────────────────────
+              if (currentStep != null && isNavigating)
+                Positioned(
+                  top: 76,
                   left: 16,
-                  bottom: (isNavigating || isDestinationSelected) ? 240 : 120,
-                  child: Column(
-                    children: [
-                      FloatingActionButton(
-                        heroTag: 'zoom_in',
-                        mini: true,
-                        backgroundColor: Colors.white,
-                        onPressed: _zoomIn,
-                        child: const Icon(Icons.add, color: Colors.black),
-                      ),
-                      const SizedBox(height: 10),
-                      FloatingActionButton(
-                        heroTag: 'zoom_out',
-                        mini: true,
-                        backgroundColor: Colors.white,
-                        onPressed: _zoomOut,
-                        child: const Icon(Icons.remove, color: Colors.black),
-                      ),
-                    ],
+                  right: 16,
+                  child: _TurnByTurnPanel(
+                    instruction: _navVoice.lastDisplayText.isNotEmpty
+                        ? _navVoice.lastDisplayText
+                        : currentStep.instruction,
+                    distanceMeters: currentStep.distanceMeters,
+                    isRerouting: isRerouting,
                   ),
                 ),
 
-                // ── Bottom panel ──────────────────────────────
-                _buildBottomPanel(),
-
-                // ── Turn-by-turn panel ────────────────────────
-                if (currentStep != null && isNavigating)
-                  Positioned(
-                    top: 76,
-                    left: 16,
-                    right: 16,
-                    child: _TurnByTurnPanel(
-                      instruction: _navVoice.lastDisplayText.isNotEmpty
-                          ? _navVoice.lastDisplayText
-                          : currentStep.instruction,
-                      distanceMeters: currentStep.distanceMeters,
-                      isRerouting: isRerouting,
-                    ),
-                  ),
-
-                // ── Rerouting banner ──────────────────────────
-                if (isRerouting)
-                  const Positioned(
-                    top: 76,
-                    left: 16,
-                    right: 16,
-                    child: _ReroutingBanner(),
-                  ),
-              ],
-            ),
+              // ── Rerouting banner ──────────────────────────
+              if (isRerouting)
+                const Positioned(
+                  top: 76,
+                  left: 16,
+                  right: 16,
+                  child: _ReroutingBanner(),
+                ),
+            ],
           );
         },
       ),

@@ -3,10 +3,11 @@
 / Queries [BuildingSearchService] on each keystroke and displays a live
 / dropdown of matching results by building name or ID. Selecting a result
 / fills the search field, dismisses the dropdown, and fires the
-/ [onBuildingSelected] callback. Includes a mic button placeholder for
-/ future voice search support. */
+/ [onBuildingSelected] callback. Includes voice search support. */
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Added for HapticFeedback
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../models/building_model.dart';
 import '../services/building_search_service.dart';
 
@@ -22,70 +23,138 @@ class BuildingSearchBar extends StatefulWidget {
 class _BuildingSearchBarState extends State<BuildingSearchBar> {
   final BuildingSearchService _searchService = BuildingSearchService();
   final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+
+  // Speech to text variables
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _isSpeechEnabled = false;
+  bool _isListening = false;
+
   List<Building> _suggestions = [];
   bool _isLoading = false;
-  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _initSpeech();
+  }
+
+  void _initSpeech() async {
+    _isSpeechEnabled = await _speech.initialize(
+      onStatus: (status) {
+        if (status == 'done' || status == 'notListening') {
+          if (mounted) {
+            setState(() {
+              _isListening = false;
+            });
+          }
+        }
+      },
+      onError: (errorNotification) {
+        if (mounted) {
+          setState(() {
+            _isListening = false;
+          });
+        }
+      },
+    );
+    setState(() {});
+  }
 
   @override
   void dispose() {
     _controller.dispose();
     _focusNode.dispose();
+    _speech.cancel();
     super.dispose();
   }
 
   Future<void> _performSearch(String query) async {
-    if (query.isEmpty) {
-      setState(() {
-        _suggestions = [];
-      });
-      return;
-    }
-
     setState(() {
       _isLoading = true;
     });
 
     try {
       final results = await _searchService.searchBuildings(query);
-      setState(() {
-        _suggestions = results;
-        _isLoading = false;
-      });
+      results.sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
+
+      if (mounted) {
+        setState(() {
+          _suggestions = results;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       debugPrint('Search error: $e');
-      setState(() {
-        _suggestions = [];
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _suggestions = [];
+          _isLoading = false;
+        });
+      }
     }
   }
 
   void _onBuildingSelected(Building building) {
     _controller.text = building.name;
     _focusNode.unfocus();
+
+    if (_isListening) {
+      _speech.stop();
+    }
+
     setState(() {
       _suggestions = [];
+      _isListening = false;
     });
 
-    // Call the callback if provided
     widget.onBuildingSelected?.call(building);
+  }
 
-    // Show selected building info
-    /* if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Selected: ${building.name}'),
-          action: SnackBarAction(
-            label: 'Navigate',
-            onPressed: () {
-              debugPrint(
-                'Navigate to: ${building.name} at (${building.latitude}, ${building.longitude})',
-              );
-            },
+  // Updated toggle function with delay and haptic feedback
+  void _toggleVoiceSearch() async {
+    if (_isListening) {
+      _speech.stop();
+      setState(() {
+        _isListening = false;
+      });
+    } else {
+      if (_isSpeechEnabled) {
+        setState(() {
+          _isListening = true;
+          _controller.clear();
+        });
+
+        // 1. Wait 1.5 seconds to let the screen reader finish its announcement
+        await Future.delayed(const Duration(milliseconds: 1500));
+
+        // Ensure the user didn't cancel during the delay before starting the mic
+        if (!mounted || !_isListening) return;
+
+        // 2. Vibrate the phone so the user knows it's time to speak
+        HapticFeedback.heavyImpact();
+
+        _speech.listen(
+          onResult: (result) {
+            setState(() {
+              _controller.text = result.recognizedWords;
+            });
+            _performSearch(result.recognizedWords);
+          },
+          pauseFor: const Duration(seconds: 8),
+          listenFor: const Duration(seconds: 30),
+          partialResults: true,
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Microphone permission denied or unavailable."),
           ),
-        ),
-      );
-    } */
+        );
+      }
+    }
   }
 
   @override
@@ -114,6 +183,7 @@ class _BuildingSearchBarState extends State<BuildingSearchBar> {
                   'assets/images/DarkSimplifiedEagleIcon.png',
                   height: 28,
                   width: 28,
+                  excludeFromSemantics: true,
                 ),
               ),
               Expanded(
@@ -124,6 +194,9 @@ class _BuildingSearchBarState extends State<BuildingSearchBar> {
                     hintText: 'Search destination...',
                     border: InputBorder.none,
                   ),
+                  onTap: () {
+                    _performSearch(_controller.text);
+                  },
                   onChanged: (query) {
                     _performSearch(query);
                   },
@@ -139,18 +212,21 @@ class _BuildingSearchBarState extends State<BuildingSearchBar> {
                   ),
                 )
               else
-                IconButton(
-                  icon: const Icon(Icons.mic, color: Colors.amber),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Voice search tapped")),
-                    );
-                  },
+                Semantics(
+                  label: _isListening ? '' : 'Voice search',
+                  button: true,
+                  excludeSemantics: true,
+                  child: IconButton(
+                    icon: Icon(
+                      _isListening ? Icons.mic : Icons.mic_none,
+                      color: Colors.amber,
+                    ),
+                    onPressed: _toggleVoiceSearch,
+                  ),
                 ),
             ],
           ),
         ),
-        // Suggestions dropdown
         if (_suggestions.isNotEmpty)
           Container(
             margin: const EdgeInsets.only(top: 4),
@@ -165,7 +241,7 @@ class _BuildingSearchBarState extends State<BuildingSearchBar> {
                 ),
               ],
             ),
-            constraints: const BoxConstraints(maxHeight: 200),
+            constraints: const BoxConstraints(maxHeight: 250),
             child: ListView.builder(
               shrinkWrap: true,
               itemCount: _suggestions.length,

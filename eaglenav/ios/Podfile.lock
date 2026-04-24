@@ -89,21 +89,21 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   CwlCatchException: 7acc161b299a6de7f0a46a6ed741eae2c8b4d75a
   CwlCatchExceptionSupport: 54ccab8d8c78907b57f99717fb19d4cc3bce02dc
-  device_info_plus: 21fcca2080fbcd348be798aa36c3e5ed849eefbe
+  device_info_plus: bf2e3232933866d73fe290f2942f2156cdd10342
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  flutter_compass: b236ab69b61545cce89fd58527f401a7587d5cc1
-  flutter_local_notifications: ad39620c743ea4c15127860f4b5641649a988100
-  flutter_tts: 35ac3c7d42412733e795ea96ad2d7e05d0a75113
-  geolocator_apple: ab36aa0e8b7d7a2d7639b3b4e48308394e8cef5e
-  package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
-  path_provider_foundation: bb55f6dbba17d0dccd6737fe6f7f34fbd0376880
-  permission_handler_apple: 4ed2196e43d0651e8ff7ca3483a069d469701f2d
-  shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
-  speech_to_text: 3b313d98516d3d0406cea424782ec25470c59d19
-  ultralytics_yolo: 650ea1417a5b3ef9b1acc55e6edef5385018d3b5
-  url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
-  vibration: ca8104a8875b9c493e15b21b04e456befd0ff6eb
+  flutter_compass: cbbd285cea1584c7ac9c4e0c3e1f17cbea55e855
+  flutter_local_notifications: 4cde75091f6327eb8517fa068a0a5950212d2086
+  flutter_tts: 91ad1884033cd95ef6e9338754adad54f01f090f
+  geolocator_apple: 66b711889fd333205763b83c9dcf0a57a28c7afd
+  package_info_plus: c0502532a26c7662a62a356cebe2692ec5fe4ec4
+  path_provider_foundation: 0b743cbb62d8e47eab856f09262bb8c1ddcfe6ba
+  permission_handler_apple: 9878588469a2b0d0fc1e048d9f43605f92e6cec2
+  shared_preferences_foundation: 5086985c1d43c5ba4d5e69a4e8083a389e2909e6
+  speech_to_text: 87bf9298952e8d9073be1b6aade6d5758db5170c
+  ultralytics_yolo: c550236eb35c549df15ce6dfca979414d7b70248
+  url_launcher_ios: bb13df5870e8c4234ca12609d04010a21be43dfa
+  vibration: 8e4d81c3e73ab229a9fb5ab2692f789c4a46d74d
 
-PODFILE CHECKSUM: a38341d976523a85f2f7c2d34a19eda82923ff75
+PODFILE CHECKSUM: 3221aa486b27fdbd548806cc7fbb6140745269bd
 
 COCOAPODS: 1.16.2

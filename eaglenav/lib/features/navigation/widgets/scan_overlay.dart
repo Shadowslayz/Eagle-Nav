@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:ultralytics_yolo/ultralytics_yolo.dart';
 
@@ -29,23 +30,43 @@ class _ScanOverlayState extends State<ScanOverlay> {
   String _activeDirection = '';
   double _threatLevel = 0.0;
   Timer? _summaryTimer;
+  bool _checkingCameraPermission = true;
+  PermissionStatus _cameraPermissionStatus = PermissionStatus.denied;
 
   // Classes not worth announcing while walking
   static const Set<String> _ignored = {
-    'ceiling', 'floor', 'sky', 'road', 'sidewalk', 'ground', 'pavement',
+    'ceiling',
+    'floor',
+    'sky',
+    'road',
+    'sidewalk',
+    'ground',
+    'pavement',
   };
 
   @override
   void initState() {
     super.initState();
     _initTts();
-    _scheduleSummary();
+    _requestCameraPermission();
   }
 
   Future<void> _initTts() async {
     await _tts.setLanguage('en-US');
     await _tts.setSpeechRate(0.50);
     await _tts.setVolume(1.0);
+  }
+
+  Future<void> _requestCameraPermission() async {
+    final status = await Permission.camera.request();
+    if (!mounted) return;
+    setState(() {
+      _cameraPermissionStatus = status;
+      _checkingCameraPermission = false;
+    });
+    if (status.isGranted) {
+      _scheduleSummary();
+    }
   }
 
   @override
@@ -86,15 +107,20 @@ class _ScanOverlayState extends State<ScanOverlay> {
   void _processResults(List<YOLOResult> results) {
     if (!mounted) return;
 
-    final relevant = results.where((r) =>
-        r.className.isNotEmpty &&
-        !_ignored.contains(r.className.toLowerCase())).toList();
+    final relevant = results
+        .where(
+          (r) =>
+              r.className.isNotEmpty &&
+              !_ignored.contains(r.className.toLowerCase()),
+        )
+        .toList();
 
     if (relevant.isEmpty) return;
 
     // Sort by proximity (largest area = closest)
-    relevant.sort((a, b) =>
-        _area(b.normalizedBox).compareTo(_area(a.normalizedBox)));
+    relevant.sort(
+      (a, b) => _area(b.normalizedBox).compareTo(_area(a.normalizedBox)),
+    );
 
     // Add all visible objects to the rolling buffer
     for (final r in relevant) {
@@ -115,7 +141,10 @@ class _ScanOverlayState extends State<ScanOverlay> {
 
     if (_urgency(topArea) >= 3) {
       HapticFeedback.heavyImpact();
-      Future.delayed(const Duration(milliseconds: 130), HapticFeedback.heavyImpact);
+      Future.delayed(
+        const Duration(milliseconds: 130),
+        HapticFeedback.heavyImpact,
+      );
     } else if (_urgency(topArea) == 2) {
       HapticFeedback.mediumImpact();
     }
@@ -186,6 +215,59 @@ class _ScanOverlayState extends State<ScanOverlay> {
 
   @override
   Widget build(BuildContext context) {
+    if (_checkingCameraPermission) {
+      return const Material(
+        color: Colors.black,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (!_cameraPermissionStatus.isGranted) {
+      final permanentlyDenied =
+          _cameraPermissionStatus.isPermanentlyDenied ||
+          _cameraPermissionStatus.isRestricted;
+      return Material(
+        color: Colors.black87,
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.camera_alt_outlined,
+                    size: 56,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Camera access is required for obstacle scanning.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: permanentlyDenied
+                        ? openAppSettings
+                        : _requestCameraPermission,
+                    child: Text(
+                      permanentlyDenied ? 'Open Settings' : 'Allow Camera',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: widget.onDismiss,
+                    child: const Text('Close'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     final detectModel = Platform.isAndroid ? 'yolo11n.tflite' : 'yolo11n';
     final segModel = Platform.isAndroid ? 'yolo11n-seg.tflite' : 'yolo11n-seg';
     final topPad = MediaQuery.of(context).padding.top;
@@ -261,7 +343,11 @@ class _ScanOverlayState extends State<ScanOverlay> {
                       color: const Color(0xFFC9A227).withOpacity(0.18),
                       borderRadius: BorderRadius.circular(9),
                     ),
-                    child: const Icon(Icons.radar, color: Color(0xFFC9A227), size: 18),
+                    child: const Icon(
+                      Icons.radar,
+                      color: Color(0xFFC9A227),
+                      size: 18,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   const Column(
@@ -285,7 +371,10 @@ class _ScanOverlayState extends State<ScanOverlay> {
                   GestureDetector(
                     onTap: widget.onDismiss,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(20),
@@ -338,7 +427,9 @@ class _ScanOverlayState extends State<ScanOverlay> {
                       key: ValueKey(_summaryText),
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: _summaryText == 'Path clear' || _summaryText == 'Scanning environment…'
+                        color:
+                            _summaryText == 'Path clear' ||
+                                _summaryText == 'Scanning environment…'
                             ? Colors.white70
                             : Colors.white,
                         fontSize: 20,
@@ -414,7 +505,9 @@ class _Arrow extends StatelessWidget {
       width: active ? 60 : 48,
       height: active ? 60 : 48,
       decoration: BoxDecoration(
-        color: active ? color.withOpacity(0.22) : Colors.white.withOpacity(0.07),
+        color: active
+            ? color.withOpacity(0.22)
+            : Colors.white.withOpacity(0.07),
         shape: BoxShape.circle,
         border: Border.all(
           color: active ? color : Colors.white24,

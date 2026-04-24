@@ -715,12 +715,14 @@ class _NavigationScreenState extends State<NavigationScreen> {
                   top: 76,
                   left: 16,
                   right: 16,
-                  child: _TurnByTurnPanel(
-                    instruction: _navVoice.lastDisplayText.isNotEmpty
-                        ? _navVoice.lastDisplayText
-                        : currentStep.instruction,
-                    distanceMeters: currentStep.distanceMeters,
-                    isRerouting: isRerouting,
+                  child: ExcludeSemantics(
+                    child: _TurnByTurnPanel(
+                      instruction: _navVoice.lastDisplayText.isNotEmpty
+                          ? _navVoice.lastDisplayText
+                          : currentStep.instruction,
+                      distanceMeters: currentStep.distanceMeters,
+                      isRerouting: isRerouting,
+                    ),
                   ),
                 ),
 

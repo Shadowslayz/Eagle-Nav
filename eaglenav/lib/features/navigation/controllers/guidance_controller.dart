@@ -297,16 +297,21 @@ class GuidanceController extends ChangeNotifier {
     // Direct hit — close enough on this tick.
     if (currentDistance < stepCompleteMeters) return true;
 
-    // Crossing detection — only meaningful within a sane catch radius.
-    // Outside this we don't trust "growing distance" to mean "passed",
-    // because it could just mean the user is walking the wrong way.
-    const crossingCatchRadius = 25.0;
-
+    // Predictive hit — at the current closing rate, we'll be inside the
+    // threshold on the next tick. Fires one tick early, which is what a
+    // "turn now" cue actually wants: a beat of lead time before the user
+    // reaches the corner, not confirmation they've already passed it.
     final last = _lastDistanceToStepEnd;
+    if (last != null && last > currentDistance) {
+      final closingRate = last - currentDistance;
+      final projectedNext = currentDistance - closingRate;
+      if (projectedNext < stepCompleteMeters) return true;
+    }
+
+    // Crossing detection — unchanged.
+    const crossingCatchRadius = 25.0;
     if (last == null) return false;
     if (currentDistance > crossingCatchRadius) return false;
-
-    // Distance was shrinking, now growing → user just walked past the point.
     return currentDistance > last;
   }
 }

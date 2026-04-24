@@ -345,13 +345,13 @@ class NavigationVoiceController extends ChangeNotifier {
       }
     }
 
-    // 3. Route-status reassurance — least new information, goes last so it
+    /*  // 3. Route-status reassurance — least new information, goes last so it
     //    doesn't push the landmarks further down the utterance.
     if (isOnRoute) {
       parts.add('You are on the correct path.');
     } else {
       parts.add('Warning — you may be off the route.');
-    }
+    } */
 
     await ttsManager.speak(parts.join(' '), TtsPriority.high);
   }
